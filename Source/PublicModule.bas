@@ -27,7 +27,17 @@ Public Function isUnicodePath(ByVal strCurrentPath As String) As Boolean
         Exit Function
     End If
 End Function
+Public Function IsDBFileExist() As Boolean
+    Dim fsoObj As FileSystemObject
+    Set fsoObj = New FileSystemObject
+    'DBファイルの有無を確認する
+    ChCurrentToDBDirectory
+    If Not fsoObj.FileExists(constJobNumberDBname) Then
+        MsgBox "DBファイルが見つからないようなので新規作成します"
+        InitialDBCreate
+    End If
 
+End Function
 
 Public Function ChCurrentDirW(ByVal DirName As String)
     'UNICODE対応ChCurrentDir
@@ -36,61 +46,32 @@ Public Function ChCurrentDirW(ByVal DirName As String)
     SetCurrentDirectoryW StrPtr(DirName)
 End Function
 
-Public Function IsDBFileExist() As Boolean
-    'DBファイルの存在を確認し、無い場合はDBファイル二つ作成し（中身空）
-    '既にカレントディレクトリがDBディレクトリにある前提で動いてます
-    'ジョブ情報DBにのみ、空のT_Kishu、機種情報格納テーブルを設定する
-    On Error GoTo ErrorCatch
-    Dim fso As New Scripting.FileSystemObject
-
-    'ジョブ情報DB有無チェック
-    'ジョブ情報DBが存在しない場合は、DB存在無しとして扱う
-    If fso.FileExists(constJobNumberDBname) <> True Then
-        MsgBox ("DBファイルが見つからなかったため新規作成します")
-        'DB新規作成処理
-        If Not InitialDBCreate Then
-            MsgBox ("DBファイルチェック（新規DB作成）でエラー")
-            IsDBFileExist = False
-            Set fso = Nothing
-            Exit Function
-        End If
-    End If
-    IsDBFileExist = True
-    Set fso = Nothing
-    Exit Function
-
-ErrorCatch:
-'    MsgBox ("DBファイル存在確認中にエラー発生")
-    Debug.Print "IsDBFileExist Error code:" & Err.Number & "Description: " & Err.Description
-    Set fso = Nothing
-    Exit Function
-End Function
 
 Public Function InitialDBCreate() As Boolean
     Dim isCollect As Boolean
     Dim strSQL  As String
-    Dim dbSqlite3 As clsSQLiteHandle
-    Set dbSqlite3 = New clsSQLiteHandle
+    Dim dbSQLite3 As clsSQLiteHandle
+    Set dbSQLite3 = New clsSQLiteHandle
     
     On Error GoTo ErrorCatch
     '初期テーブル作成用SQL文作成(T_Kishu)
     strSQL = ""
-    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Kishu & """("""
-    strSQL = strSQL & Kishu_Header & """ TEXT NOT NULL UNIQUE,"""
-    strSQL = strSQL & Kishu_KishuName & """ TEXT NOT NULL UNIQUE,"""
-    strSQL = strSQL & Kishu_KishuNickname & """ TEXT NOT NULL ,"""
-    strSQL = strSQL & Kishu_TotalKeta & """ NUMERIC NOT NULL,"""
-    strSQL = strSQL & Kishu_RenbanKetasuu & """ NUMERIC NOT NULL,"""
-    strSQL = strSQL & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP,"""
+    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Kishu & """ (" & vbCrLf & """"
+    strSQL = strSQL & Kishu_Header & """ TEXT NOT NULL UNIQUE," & vbCrLf & """"
+    strSQL = strSQL & Kishu_KishuName & """ TEXT NOT NULL UNIQUE," & vbCrLf & """"
+    strSQL = strSQL & Kishu_KishuNickname & """ TEXT NOT NULL UNIQUE," & vbCrLf & """"
+    strSQL = strSQL & Kishu_TotalKeta & """ NUMERIC NOT NULL," & vbCrLf & """"
+    strSQL = strSQL & Kishu_RenbanKetasuu & """ NUMERIC NOT NULL," & vbCrLf & """"
+    strSQL = strSQL & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf & """"
     strSQL = strSQL & Field_Update & """ TEXT)"
     
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
-    Set dbSqlite3 = Nothing
-    'テスト実装_SQL作成テスト
-    isCollect = CreateTable_by_KishuName("Test15")
-    If Not isCollect Then
-        InitialDBCreate = False
-    End If
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
+    Set dbSQLite3 = Nothing
+'    'テスト実装_SQL作成テスト
+'    isCollect = CreateTable_by_KishuName("Test15")
+'    If Not isCollect Then
+'        InitialDBCreate = False
+'    End If
     '正常終了
     InitialDBCreate = True
     Exit Function
@@ -100,18 +81,48 @@ ErrorCatch:
     End If
     Exit Function
 End Function
-Public Function registNewKishu(ByVal strKishuheader As String, ByVal strKishuname As String, ByVal strKishuNickname As String, _
+Public Function registNewKishu_to_KishuTable(ByVal strKishuheader As String, ByVal strKishuname As String, ByVal strKishuNickname As String, _
                                 ByVal byteTotalKetasu As Byte, ByVal byteRenbanKetasu As Byte) As Boolean
     '新機種登録動作
+    Dim dbSQLite3 As clsSQLiteHandle
+    Set dbSQLite3 = New clsSQLiteHandle
+    Dim strSQLlocal As String
+    Dim isCollect As Boolean
+    'テーブルの有無確認
+    If Not IsTableExist(Table_Kishu) Then
+        MsgBox "機種テーブルが無かったので追加します"
+        InitialDBCreate
+    End If
+    'SQL組み立て
+    strSQLlocal = "INSERT INTO " & Table_Kishu & _
+                    " (" & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & _
+                    "," & Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & _
+                    ") VALUES (""" & strKishuheader & """,""" & strKishuname & """,""" & strKishuNickname & """," & _
+                    byteTotalKetasu & "," & byteRenbanKetasu & ")"
+    dbSQLite3.SQL = strSQLlocal
+    isCollect = dbSQLite3.DoSQL_No_Transaction()
+    Set dbSQLite3 = Nothing
+    If Not isCollect Then
+        MsgBox "機種テーブル追加中にエラー発生"
+        Debug.Print Err.Description
+        registNewKishu_to_KishuTable = False
+        Exit Function
+    End If
+    '続いて機種名より機種名依存のテーブルを作成していく
+    isCollect = CreateTable_by_KishuName(strKishuname)
+    If Not isCollect Then
+        MsgBox "機種別テーブル追加中にエラー"
+        registNewKishu_to_KishuTable = False
+        Exit Function
+    End If
+    MsgBox "機種追加完了"
+    registNewKishu_to_KishuTable = True
 End Function
-Public Function ChcurrentAndReturnDBName()
-    'Activesheetの設定で、カレントディレクトリを移動し
-    '更にデータベース名を返す(String)
+Public Sub ChCurrentToDBDirectory()
+    'カレントディレクトリをDBディレクトリに移動する
     'カレントディレクトリの取得（UNCパス対応）
     Dim strCurrentDir As String
-    Dim fso As New Scripting.FileSystemObject
-    Dim rngName As Name
-    Dim strDatabaseName As String
+    Dim fso As New scripting.FileSystemObject
     
     'カレントディレクトリをブックのディレクトリに変更
     ChCurrentDirW (ThisWorkbook.Path)
@@ -129,7 +140,7 @@ Public Function ChcurrentAndReturnDBName()
     'データベースディレクトリに移動
     strCurrentDir = CurDir & "\" & constDatabasePath
     ChCurrentDirW (strCurrentDir)
-End Function
+End Sub
 
 Public Function GetNameRange(ByVal strSerchName As String, Optional ByRef shTarget As Worksheet)
     '名前定義に指定されたものが存在するか調べて、存在したら名前定義そのものを返す
@@ -166,20 +177,20 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     Dim strSQL As String
     Dim adstreamReader As ADODB.Stream
     Dim isCollect As Boolean
-    Dim dbSqlite3 As clsSQLiteHandle
-    Set dbSqlite3 = New clsSQLiteHandle
+    Dim dbSQLite3 As clsSQLiteHandle
+    Set dbSQLite3 = New clsSQLiteHandle
     
     'T_Jobdata ジョブの履歴とJob番号
-    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_JobDataPri & strKishuname & """ (""" & _
-    Job_Number & """ TEXT NOT NULL,""" & _
-    Job_RirekiHeader & """ TEXT NOT NULL,""" & _
-    Job_RirekiNumber & """ NUMERIC NOT NULL UNIQUE,""" & _
-    Job_Rireki & """ TEXT NOT NULL UNIQUE,""" & _
-    Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP,""" & _
-    Field_Update & """ TEXT," & _
-    "Primary Key(""" & Job_Rireki & """)" & _
-    ");"
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
+    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_JobDataPri & strKishuname & """ (" & vbCrLf
+    strSQL = strSQL & """" & Job_Number & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Job_RirekiHeader & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Job_RirekiNumber & """ NUMERIC NOT NULL UNIQUE," & vbCrLf
+    strSQL = strSQL & """" & Job_Rireki & """ TEXT NOT NULL UNIQUE," & vbCrLf
+    strSQL = strSQL & """" & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf
+    strSQL = strSQL & """" & Field_Update & """ TEXT," & vbCrLf
+    strSQL = strSQL & "Primary Key(""" & Job_Rireki & """)" & vbCrLf
+    strSQL = strSQL & ");"
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
     If Not isCollect Then
         CreateTable_by_KishuName = False
         Exit Function
@@ -187,15 +198,14 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
     
     '続いてT_Barcorde バーコードテーブル（ピッてするやつ）
-    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Barcodepri & strKishuname & """ (""" & _
-    Job_Number & """ TEXT,""" & _
-    BarcordNumber & """ TEXT NOT NULL,""" & _
-    Laser_Rireki & """ TEXT NOT NULL UNIQUE,""" & _
-    Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP,""" & _
-    Field_Update & """ TEXT," & _
-    "Primary Key(""" & Laser_Rireki & """)" & _
-    ");"
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
+    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Barcodepri & strKishuname & """ (" & vbCrLf
+    strSQL = strSQL & """" & BarcordNumber & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Laser_Rireki & """ TEXT NOT NULL UNIQUE," & vbCrLf
+    strSQL = strSQL & """" & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf
+    strSQL = strSQL & """" & Field_Update & """ TEXT," & vbCrLf
+    strSQL = strSQL & "Primary Key(""" & Laser_Rireki & """)" & vbCrLf
+    strSQL = strSQL & ");"
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
     If Not isCollect Then
         CreateTable_by_KishuName = False
         Exit Function
@@ -203,15 +213,14 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
 
     '最後にリトライ履歴（いるの？これ）
-    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Retrypri & strKishuname & """ (""" & _
-    Job_Number & """ TEXT,""" & _
-    BarcordNumber & """ TEXT NOT NULL,""" & _
-    Laser_Rireki & """ TEXT NOT NULL,""" & _
-    Retry_Reason & """ TEXT,""" & _
-    Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP,""" & _
-    Field_Update & """ TEXT" & _
-    ");"
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
+    strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Retrypri & strKishuname & """ (" & vbCrLf
+    strSQL = strSQL & """" & BarcordNumber & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Laser_Rireki & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Retry_Reason & """ TEXT," & vbCrLf
+    strSQL = strSQL & """" & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf
+    strSQL = strSQL & """" & Field_Update & """ TEXT" & vbCrLf
+    strSQL = strSQL & ");"
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
     If Not isCollect Then
         CreateTable_by_KishuName = False
         Exit Function
@@ -222,7 +231,7 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
     strSQL = "CREATE UNIQUE INDEX IF NOT EXISTS ""ix" & Table_Barcodepri & strKishuname & """ ON """ & _
     Table_Barcodepri & strKishuname & """ (""" & Laser_Rireki & """ ASC);"
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
     If Not isCollect Then
         CreateTable_by_KishuName = False
         Exit Function
@@ -231,17 +240,16 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
     strSQL = "CREATE UNIQUE INDEX IF NOT EXISTS ""ix" & Table_JobDataPri & strKishuname & """ ON """ & _
     Table_JobDataPri & strKishuname & """ (""" & Job_Rireki & """ ASC);"
-    isCollect = dbSqlite3.DoSQL_No_Transaction(strSQL)
+    isCollect = dbSQLite3.DoSQL_No_Transaction(strSQL)
     If Not isCollect Then
         CreateTable_by_KishuName = False
         Exit Function
     End If
     'インデックス作成終了
-    Set dbSqlite3 = Nothing
+    Set dbSQLite3 = Nothing
     CreateTable_by_KishuName = True
     Exit Function
 End Function
-
  Public Function getArryDimmensions(ByRef varArry As Variant) As Byte
     '配列の次元数を返す（Byteまでしか対応しないよ）
     Dim byteLocalCounter As Byte
@@ -267,25 +275,202 @@ End Function
 Public Function getKishuInfoByRireki(strargRireki As String) As typKishuInfo
     '履歴を元に機種情報を返す
     '返り値はKishuInfo型（ユーザー定義構造体）
+    'ぐろばんる変数にあるのを使うようになりました
     Dim Kishu As typKishuInfo
-    Dim dbSqlite3 As clsSQLiteHandle
-    dbSqlite3 = New clsSQLiteHandle
-    Dim strSQLlocal As String
-    Dim strarrKishuHeader() As String
-    Dim longKishusuCounter As Long
+    Dim longKishuCounter As Long
+    On Error GoTo ErrorCatch
 
     If strargRireki = "" Then
         MsgBox "機種情報検索には履歴が必須です"
         getKishuInfoByRireki = Kishu
-        Exit Function
+        GoTo CloseAndExit
+    End If
+    'ぐろばんるのが初期化されているかチェック
+    If (Not arrKishuInfoGlobal) = -1 Then
+        'ここに来ると未初期化らしい・・・
+        Call GetAllKishuInfo_Array
+    End If
+    If boolNoTableKishuRecord = True Then
+        '機種テーブルが空の場合は機種登録画面を表示
+        strRegistRireki = strargRireki
+        frmRegistNewKishu.Show
     End If
 
-    '機種ヘッダのみのリストを受け取る
-    strSQLlocal = "SELECT " & Kishu_Header & _
-                    "FROM " & Table_Kishu
-    
-    
-    
-End Function
+Serch_From_GlobalKishuList:
+    For longKishuCounter = LBound(arrKishuInfoGlobal, 1) To UBound(arrKishuInfoGlobal, 1)
+        If Mid(strargRireki, 1, Len(arrKishuInfoGlobal(longKishuCounter).KishuHeader)) = _
+            arrKishuInfoGlobal(longKishuCounter).KishuHeader Then
+            '機種ヘッダが一致したので、KishuInfoを返して終了
+            Kishu.KishuHeader = arrKishuInfoGlobal(longKishuCounter).KishuHeader
+            Kishu.KishuName = arrKishuInfoGlobal(longKishuCounter).KishuName
+            Kishu.KishuNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName
+            Kishu.TotalRirekiketa = arrKishuInfoGlobal(longKishuCounter).TotalRirekiketa
+            Kishu.RenbanKetasuu = arrKishuInfoGlobal(longKishuCounter).RenbanKetasuu
+            getKishuInfoByRireki = Kishu
+            GoTo CloseAndExit
+        End If
+    Next longKishuCounter
+    'ここまで来たという事は機種登録されてないという事
+    MsgBox "機種登録されていないようなので、登録画面に移ります"
+    strRegistRireki = strargRireki
+    Call frmRegistNewKishu.Show
+    '登録したので、もう1回リスト取得しに行く
+    If boolRegistOK Then
+        GoTo Serch_From_GlobalKishuList
+    Else
+        '機種登録OKフラグが立ってなかったら終了する
+        Exit Function
+    End If
+    Exit Function
 
- 
+CloseAndExit:
+    Exit Function
+ErrorCatch:
+    MsgBox "機種情報取得中にエラーが発生したようです"
+    Debug.Print "getKishuInfoByRireki code: " & Err.Number & " Description: " & Err.Description
+End Function
+Public Function GetAllKishuInfo_Array() As typKishuInfo()
+    '全機種情報をKishuInfo型の配列にして返す
+    'ぐろばんる変数で共有しちゃおう？
+    Dim arrKishuInfo() As typKishuInfo
+    Dim isCollect As Boolean
+    Dim dbKishuAll As clsSQLiteHandle
+    Set dbKishuAll = New clsSQLiteHandle
+    Dim intCounterKishu As Integer
+    Dim varKishuTable As Variant
+    Dim strSQLlocal As String
+    On Error GoTo ErrorCatch
+    
+    '機種テーブルの有無を確認する
+    If Not IsTableExist(Table_Kishu) Then
+        MsgBox "機種テーブル（初期テーブル）が見つからなかったので新規作成します。"
+        isCollect = InitialDBCreate
+        If Not isCollect Then
+            MsgBox "機種テーブルの作成に失敗したようです"
+            GetAllKishuInfo_Array = arrKishuInfo
+            GoTo CloseAndExit
+            Exit Function
+        End If
+    End If
+    
+    'SQL作成
+    strSQLlocal = "SELECT " & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & "," & _
+                    Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & _
+                    " FROM " & Table_Kishu
+    '機種テーブルの内容を配列で受け取る
+    dbKishuAll.SQL = strSQLlocal
+    isCollect = dbKishuAll.DoSQL_No_Transaction()
+    If Not isCollect Then
+        MsgBox "SQL実行時に失敗したもよう"
+        GoTo CloseAndExit
+    End If
+    
+    If dbKishuAll.RecordCount = 0 Then
+        Debug.Print "NoDataAvilable in T_Kishu"
+        boolNoTableKishuRecord = True
+        Exit Function
+    End If
+    
+    '結果を配列で受け取る
+    ReDim varKishuTable(dbKishuAll.RecordCount - 1)
+    ReDim arrKishuInfo(dbKishuAll.RecordCount - 1)
+    ReDim arrKishuInfoGlobal(UBound(arrKishuInfo))
+    varKishuTable = dbKishuAll.RS_Array(boolPlusTytle:=False)
+    Set dbKishuAll = Nothing
+    'KishuInfo型に突っ込んでやる
+    For intCounterKishu = LBound(varKishuTable, 1) To UBound(varKishuTable, 1)
+        arrKishuInfo(intCounterKishu).KishuHeader = varKishuTable(intCounterKishu, 0)
+        arrKishuInfo(intCounterKishu).KishuName = varKishuTable(intCounterKishu, 1)
+        arrKishuInfo(intCounterKishu).KishuNickName = varKishuTable(intCounterKishu, 2)
+        arrKishuInfo(intCounterKishu).TotalRirekiketa = varKishuTable(intCounterKishu, 3)
+        arrKishuInfo(intCounterKishu).RenbanKetasuu = varKishuTable(intCounterKishu, 4)
+    Next intCounterKishu
+    arrKishuInfoGlobal = arrKishuInfo
+    GetAllKishuInfo_Array = arrKishuInfo
+    GoTo CloseAndExit
+    Exit Function
+CloseAndExit:
+    Set dbKishuAll = Nothing
+    GetAllKishuInfo_Array = arrKishuInfo
+    Exit Function
+    
+ErrorCatch:
+    Debug.Print "GetAllKishu_Array code: " & Err.Number & "Description: " & Err.Description
+End Function
+Public Function GetFieldTypeNameByTableName(ByVal strargTableName As String) As Dictionary
+    'テーブル名からフィールド名とデータタイプの一覧を取得する
+    Dim dbFieldName As clsSQLiteHandle
+    Set dbFieldName = New clsSQLiteHandle
+    Dim isCollect As Boolean
+    Dim dicFieldType As Dictionary
+    Set dicFieldType = New Dictionary
+    Dim varFieldType As Variant
+    Dim intFieldCounter As Integer
+    If Not IsTableExist(strargTableName) Then
+        MsgBox strargTableName & " テーブルが見つかりませんでした。タイプ取得を中止します。"
+        Set GetFieldTypeNameByTableName = dicFieldType
+        GoTo CloseAndExit
+    End If
+    'マスターテーブルよりフィールド名とタイプ名を取得
+    isCollect = dbFieldName.DoSQL_No_Transaction("SELECT name,type FROM pragma_table_info(""" & strargTableName & """)")
+    varFieldType = dbFieldName.RS_Array(boolPlusTytle:=False)
+    
+    For intFieldCounter = LBound(varFieldType, 1) To UBound(varFieldType, 1)
+        dicFieldType.Add varFieldType(intFieldCounter, 0), varFieldType(intFieldCounter, 1)
+    Next intFieldCounter
+    Set GetFieldTypeNameByTableName = dicFieldType
+    GoTo CloseAndExit
+    Exit Function
+CloseAndExit:
+    Set dbFieldName = Nothing
+    Set dicFieldType = Nothing
+    Exit Function
+End Function
+ Public Function IsTableExist(ByVal strargTableName As String) As Boolean
+    Dim dbExist As clsSQLiteHandle
+    Set dbExist = New clsSQLiteHandle
+    Dim isCollect As Boolean
+    Dim strSQLlocal As String
+    strSQLlocal = "SELECT tbl_name FROM sqlite_master WHERE type=""table"" AND name=""" & strargTableName & """"
+    isCollect = dbExist.DoSQL_No_Transaction(strSQLlocal)
+    If dbExist.RecordCount = 0 Then
+        '検索結果にないので存在しない
+        IsTableExist = False
+    Else
+        'テーブル発見
+        IsTableExist = True
+    End If
+    Set dbExist = Nothing
+    Exit Function
+ End Function
+Public Function GetRecordCountSimple(ByVal strargTableName As String, ByVal strargFieldName As String, Optional ByVal strargFindStr) As Long
+    'テーブル名とフィールド名（一つ限定）、検索文字（省略可）を与えて、レコード数のみを返すシンプルなメソッド
+    '検索文字列を与えない場合はcount()の簡易版として使えるかも
+    '検索は WHERE (Field) LIKE (検索文字列)として行っています
+    
+    Dim dbSimple As clsSQLiteHandle
+    On Error GoTo ErrorCatch
+    If Not IsTableExist(strargTableName) Then
+        MsgBox strargTableName & "テーブルが見つかりません"
+        GetRecordCountSimple = 0
+        Exit Function
+    End If
+    Set dbSimple = New clsSQLiteHandle
+    If strargFindStr = "" Then
+        '検索文字列がない場合は素直にフィールド情報全部を対象に
+        dbSimple.SQL = "SELECT " & strargFieldName & " FROM " & strargTableName
+    Else
+        '検索文字列がある場合は、Whereの条件に使ってやる
+        dbSimple.SQL = "SELECT " & strargFieldName & " FROM " & strargTableName & _
+        " WHERE " & strargFieldName & " LIKE " & strargFindStr
+    End If
+    dbSimple.DoSQL_No_Transaction
+    GetRecordCountSimple = dbSimple.RecordCount
+    Set dbSimple = Nothing
+    Exit Function
+ErrorCatch:
+    GetRecordCountSimple = 0
+    Set dbSimple = Nothing
+    Debug.Print "SimpleRecorde code: " & Err.Number & "Description: " & Err.Description
+    Exit Function
+End Function

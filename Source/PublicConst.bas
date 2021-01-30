@@ -77,5 +77,17 @@ Public Type typMaisuuRireki
     To As String
 End Type
 
+Public arrKishuInfoGlobal() As typKishuInfo
+
+'いんすーとする時のフィールド定義をもうここでハードコーディングしちゃう・・・
+'テーブルが増えるたびに記述すること・・・
+'どうやら配列は定数に出来ないようなので、SQLBuilderのコンストラクタ内で初期化する
+Public arrFieldList_JobData() As String                                         'JobDataテーブルのフィールド定義
+Public arrFieldList_Barcode() As String                                         'Barcodeテーブルのフィールド定義
+Public arrFieldList_Retry() As String                                           'Retryテーブルのフィールド定義
 Public oldMaisuData() As typMaisuuRireki
 Public newMaisuData() As typMaisuuRireki
+Public strRegistRireki As String                                                '機種登録時履歴、フォーム間の受け渡しに使う
+Public strQRZuban As String                                                     '指示書QRコード読み取り時の図番格納、主に機種登録で使う
+Public boolRegistOK As Boolean                                                  '機種登録が成功したらTrueフラグを立てる
+Public boolNoTableKishuRecord As Boolean                                        '機種テーブルにデータが存在しない場合True、初期のみ

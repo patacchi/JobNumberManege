@@ -14,10 +14,12 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+
 Private Sub btnCancel_Click()
     txtboxQRString.Text = ""
-    frmQRAnalyze.Hide
-    'formJobNumberInput.Show
+    Unload Me
+'    frmQRAnalyze.Hide
+'    frmJobNumberInput.Show
     
 End Sub
 Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
@@ -41,7 +43,10 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
         frmQRAnalyze.Show
         Exit Sub
     End If
+    '枚数と図番をQRコードから入力してやる
     intMaisuu = CInt(strSplit(3))
+    '図番は機種登録でも使うかもしれないので、ぐろばんる変数に格納
+    strQRZuban = CStr(strSplit(1))
     'ジョブ番号の空白の連続をマージする
     strBuf = ""
     For intCount = 1 To Len(strSplit(0))
@@ -66,16 +71,20 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
         End Select
         strJobNumber = strBuf
     Next intCount
-    formJobNumberInput.textBoxJobNumber.Text = strJobNumber
-    formJobNumberInput.textboxMisuu = intMaisuu
-    formJobNumberInput.Show
-    formJobNumberInput.textboxStartRireki.SetFocus
+    'QRコードの情報を元に、Job番号入力フォームに値をセットしていく
+    frmJobNumberInput.txtboxJobNumber.Text = strJobNumber
+    frmJobNumberInput.labelZuban.Caption = strQRZuban
+    frmJobNumberInput.txtboxMaisuu = intMaisuu
+    Unload Me
+    frmJobNumberInput.txtboxStartRireki.SetFocus
+    Exit Sub
+'    frmJobNumberInput.Show
 ErrorCatcch:
     '基本的にエラー発生したら何もしないや
     Debug.Print "Errror code: " & Err.Number & "Description: " & Err.Description
     txtboxQRString.Text = ""
     txtboxQRString.Enabled = False
-    frmQRAnalyze.Hide
+    Unload Me
 End Sub
 
 Private Sub UserForm_Activate()

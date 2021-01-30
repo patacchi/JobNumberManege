@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 'リサイズ実装のためWin32API使用
 'const
 Option Explicit
@@ -69,6 +70,7 @@ End Sub
 Private Sub btnBulkDataInput_Click()
     Dim strSQL
     Randomize
+    frmBulkInsertTest.Show
     'ある範囲の乱数の発生のさせ方
     'Int((範囲上限値 - 範囲下限値 + 1) * Rnd + 範囲下限値)
 
@@ -80,22 +82,18 @@ Private Sub btnSQLGo_Click()
         MsgBox "空白はちょっと・・・"
         Exit Sub
     End If
-    Dim dbSqlite3 As clsSQLiteHandle
+    Dim dbSQLite3 As clsSQLiteHandle
     Dim varRetValue As Variant
     Dim isCollect As Boolean
-    Set dbSqlite3 = New clsSQLiteHandle
-    
-    If Not IsDBFileExist Then
-        MsgBox "初期DB作成時にエラー"
-    End If
-    
-    isCollect = dbSqlite3.DoSQL_No_Transaction(txtboxSQLText.Text)
+    Set dbSQLite3 = New clsSQLiteHandle
+    IsDBFileExist
+    isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
     If isCollect Then
-        varRetValue = dbSqlite3.RS_Array(True)
+        varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
     Else
         'エラーがあった場合の処理・・・なんだけど
         'エラーメッセージをそのまま表示すればいいのでは・・・
-        varRetValue = dbSqlite3.RS_Array(boolPlusTytle:=True)
+        varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
     End If
     If VarType(varRetValue) = vbEmpty Then
         listBoxSQLResult.Clear
@@ -103,7 +101,7 @@ Private Sub btnSQLGo_Click()
         Exit Sub
     End If
     
-    Set dbSqlite3 = Nothing
+    Set dbSQLite3 = Nothing
     With listBoxSQLResult
         .ColumnCount = UBound(varRetValue, 2) - LBound(varRetValue, 2) + 1
         '.ColumnWidths = "50;50;50;50;50;50;50;50"
@@ -115,8 +113,21 @@ End Sub
 Private Sub listBoxSQLResult_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     'リストダブルクリックしたらクリップボードにコピーしてみおよう
     Dim objDataObj As DataObject
+    Dim intCounterColumn As Integer
+    Dim strListText As String
     Set objDataObj = New DataObject
         objDataObj.SetText (listBoxSQLResult.List(listBoxSQLResult.ListIndex))
         objDataObj.PutInClipboard
-        Debug.Print listBoxSQLResult.List(listBoxSQLResult.ListIndex) & " Copy to Clipbord Done"
+        strListText = ""
+        For intCounterColumn = 0 To listBoxSQLResult.ColumnCount - 1
+            If IsNull(listBoxSQLResult.List(listBoxSQLResult.ListIndex, intCounterColumn)) Then
+                'Nullの場合はNULLって入れてやろう
+                strListText = strListText & " NULL"
+            Else
+                strListText = strListText & " " & CStr(listBoxSQLResult.List(listBoxSQLResult.ListIndex, intCounterColumn))
+            End If
+        Next intCounterColumn
+        LTrim (strListText)
+        MsgBox strListText
+        Debug.Print strListText
 End Sub

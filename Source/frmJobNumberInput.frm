@@ -13,69 +13,79 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
 Option Explicit
 'Option Base 1
+
+Private Sub frmJobNumberInput_Initialize()
+    'フォーム初期化（全部消すだけ）
+    txtboxJobNumber.Text = ""
+    txtboxMaisuu.Text = ""
+    txtboxStartRireki = ""
+    labelZuban.Caption = ""
+    btnQRFormShow.SetFocus
+End Sub
 
 
 Private Sub btnInputRirekiNumber_Click()
     'ジョブ番号・履歴の登録処理
-    '以下はDBから引っ張ってくる
-    Dim dicKishuInfo As New Scripting.Dictionary
-    Dim byteRenbannKeta As Byte         '連番部分の桁数（Right関数の引数）
-    Dim byteRirekiKetaCount As Byte     '履歴の桁数トータル
-    
-    Dim strHeader As String             'ヘッダ
-    Dim longRenbann As Long             '履歴連番部分
-    Dim strRireki As String             'ヘッダ+連番
-    Dim longInputRow As Long            'シート入力時の入力行数
-    Dim longLocalCounter As Long        'ループ処理用カウンター
-    Dim nameRirekiKetasuu As Name       '履歴桁数の名前定義
-    Dim arryKishuHeader() As Variant    'ジョブ情報_機種テーブルから、機種名一覧を受け取る
-    
+    Dim KishuInfoLocal As typKishuInfo
+    Dim isCollect As Boolean
+    Dim sqlbJobInput As clsSQLStringBuilder
+    On Error GoTo ErrorCatch
+
     If txtboxJobNumber.Text = Empty Or _
         txtboxMaisuu.Text = Empty Or _
         txtboxStartRireki.Text = Empty Then
         MsgBox ("空白の項目があります。確認してください")
         Exit Sub
     End If
-    
-    If Len(txtboxStartRireki.Text) > constMaxRirekiKetasuu Then
-        MsgBox ("履歴の桁数が" & constMaxRirekiKetasuu & "桁を超えています。処理を中止します。")
-        Exit Sub
-    End If
 
-    If txtboxMaisuu.Text < 1 Then
+    If CLng(txtboxMaisuu.Text) < 1 Then
         MsgBox ("枚数には1以上の整数を入力して下さい")
         Exit Sub
     End If
-
     
-    'ヘッダーテーブルより履歴入力部分から機種名（履歴構成）を引っ張ってくる
-    '先頭の文字列一致でいいかな？
-'    'カレントディレクトリ変更（DBディレクトリへ）
-'    If Not ChcurrentforDB() Then
-'        MsgBox ("DBディレクトリ認識失敗。処理を中断します。")
-'        Exit Sub
-'    End If
-'
-'    'DBファイルの存在有無の確認（なければ作る）
-'    If Not IsDBFileExist() Then
-'        MsgBox ("失敗・・・・")
-'    End If
-    '機種名一覧を受け取る処理
-    
-    '返ってくるリストは、機種ヘッダ、機種名、トータル桁数、連番桁数の順番
-    'arryKishuHeader = KishuList()
-    If Not arryKishuHeader Then
-        '機種情報見つからなかったので、機種登録から
-        
+    'スタート履歴からKishuInfoを引っ張ってくる
+    KishuInfoLocal = getKishuInfoByRireki(txtboxStartRireki.Text)
+    Set sqlbJobInput = New clsSQLStringBuilder
+    With sqlbJobInput
+        .JobNumber = CStr(txtboxJobNumber.Text)
+        .FieldArray = arrFieldList_JobData
+        .StartRireki = CStr(txtboxStartRireki.Text)
+        .Maisu = CLng(txtboxMaisuu.Text)
+        .RenbanKeta = KishuInfoLocal.RenbanKetasuu
+        .TableName = Table_JobDataPri & KishuInfoLocal.KishuName
+    End With
+    Set sqlbJobInput.FieldType = GetFieldTypeNameByTableName(sqlbJobInput.TableName)
+    If Not Len(txtboxStartRireki.Text) = KishuInfoLocal.TotalRirekiketa Then
+        MsgBox "履歴の桁数が登録されている機種名：" & KishuInfoLocal.KishuName & " の " & _
+                KishuInfoLocal.TotalRirekiketa & " 桁と違います。処理を中止します。"
+                GoTo CloseAndExit
     End If
     
-    'フォームに入力された文字の先頭と履歴ヘッダ（機種判別用）が一致するか調べる
-    '見つからない場合は機種登録画面を(todo)
-    For longLocalCounter = 0 To UBound(arryKishuHeader)
-        
-    Next longLocalCounter
+    isCollect = sqlbJobInput.CreateInsertSQL(boolCheckLastRireki:=True)
+    If Not isCollect Then
+        MsgBox "ジョブ登録中に何かあったようです"
+        GoTo CloseAndExit
+        Exit Sub
+    End If
     
+    MsgBox "ジョブ登録完了"
+    frmJobNumberInput_Initialize
+    GoTo CloseAndExit
+    Exit Sub
+CloseAndExit:
+    Set sqlbJobInput = Nothing
+    Exit Sub
+ErrorCatch:
+    Debug.Print "ImputRireki Erro code: " & Err.Number & "Description: " & Err.Description
+    Set sqlbJobInput = Nothing
+    Exit Sub
 End Sub
 
+Private Sub btnQRFormShow_Click()
+    'QRコード読み取りフォーム表示
+'    frmJobNumberInput.Hide
+    frmQRAnalyze.Show
+End Sub
