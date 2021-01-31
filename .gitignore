@@ -1,5 +1,4 @@
 Job番号管理システム構想.txt
-QR_Readsumple2.txt
 QR_Readsumple1.txt
 Barcord_Input.xlsm
 ExcelVBA.crt
@@ -7,7 +6,8 @@ SMTL4.csr
 ChangeLog.txt
 JOB_data.xlsm
 PrivateKey.key
+Sqlite3Demo.bas
 sqlite_master_all_result.csv
 ~$*
 /x64/
-/Database_sqlite3/JobNumber*
+/bin/Database_sqlite3/JobNumber*

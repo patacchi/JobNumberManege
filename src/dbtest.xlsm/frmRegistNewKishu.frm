@@ -13,6 +13,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+Option Explicit
 Private Sub btnAlreadyDataSet_Click()
     'リストボックスで選択されている機種情報を左のあちこちに張り付ける
     Dim intKishuCount As Integer
@@ -44,14 +45,12 @@ Private Sub btnAlreadyDataSet_Click()
         End If
     Next intKishuCount
 End Sub
-
 Private Sub btnCancel_Click()
     'とりあえず処理を中止する
     MsgBox "キャンセルボタンが押されたため、処理を中止します。"
     boolRegistOK = False
     Unload Me
 End Sub
-
 Private Sub btnregistNewKishu_Click()
     Dim longRecordCount As Long
     Dim longMsgBoxReturn As Long
@@ -60,21 +59,20 @@ Private Sub btnregistNewKishu_Click()
         MsgBox "未入力箇所があります。入力し直してください"
         Exit Sub
     End If
-    
     '既存の物と重複してないかチェックしてみる（簡易版）
-    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_Header, """" & labelKishuHeader.Caption & """")
+    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_Header, "LIKE """ & labelKishuHeader.Caption & """")
     If longRecordCount >= 1 Then
         MsgBox "機種ヘッダの重複があるようです。入力内容を確認して下さい。"
         txtboxKishuHeader.SetFocus
         Exit Sub
     End If
-    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_KishuName, """" & txtboxKishuName.Text & """")
+    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_KishuName, "LIKE """ & txtboxKishuName.Text & """")
     If longRecordCount >= 1 Then
         MsgBox "機種名で重複があるようです。入力内容を確認して下さい。"
         txtboxKishuName.SetFocus
         Exit Sub
     End If
-    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_KishuNickname, """" & txtBoxKishuNickName.Text & """")
+    longRecordCount = GetRecordCountSimple(Table_Kishu, Kishu_KishuNickname, "LIKE """ & txtBoxKishuNickName.Text & """")
     If longRecordCount >= 1 Then
         MsgBox "機種通称名で重複があるようです。入力内容を確認して下さい。"
         txtBoxKishuNickName.SetFocus
@@ -93,7 +91,6 @@ Private Sub btnregistNewKishu_Click()
         txtboxRenbanketasuu.SetFocus
         Exit Sub
     End If
-    
     If Err.Number <> 0 Then
         MsgBox "連番部分に数値以外が混入しているようです。連番の桁数を確認して下さい。"
         txtboxRenbanketasuu.SetFocus
@@ -108,7 +105,6 @@ Private Sub btnregistNewKishu_Click()
             Exit Sub
         End If
     End If
-    
     boolRegistOK = registNewKishu_to_KishuTable(labelKishuHeader.Caption, txtboxKishuName.Text, txtBoxKishuNickName.Text, _
                     CByte(txtboxTotalRirekiKetasuu.Text), CByte(txtboxRenbanketasuu.Text))
     If boolRegistOK Then
@@ -120,18 +116,18 @@ Private Sub btnregistNewKishu_Click()
         Exit Sub
     Else
         MsgBox "機種登録作業でエラーが発生しました"
+        Debug.Print "機種登録フラグNGにより終了"
         Unload Me
         Exit Sub
     End If
-
     Exit Sub
 ErrorCatch:
     MsgBox "機種登録中にエラーが発生したようです。処理を中止します"
     Debug.Print "btnRegistNewKishu_click code: " & Err.Number & " Description: " & Err.Description
     boolRegistOK = False
+    Unload Me
     Exit Sub
 End Sub
-
 Private Sub txtboxKishuHeader_Change()
     '機種ヘッダの桁数が変化したら、横のラベルに履歴の左端からの指定文字数を入れてやる
     Dim intStringCount As Integer
@@ -144,7 +140,6 @@ Private Sub txtboxKishuHeader_Change()
         intStringCount = Len(strRegistRireki)
     End If
     labelKishuHeader.Caption = Left(strRegistRireki, intStringCount)
-
 End Sub
 Private Sub txtboxRenbanketasuu_Change()
     Dim intStringCount As Integer
@@ -157,20 +152,17 @@ Private Sub txtboxRenbanketasuu_Change()
         intStringCount = Len(strRegistRireki)
     End If
     labelRenban.Caption = Right(strRegistRireki, intStringCount)
-
 End Sub
 Private Sub txtboxKishuHeader_KeyPress(ByVal KeyAscii As MSForms.ReturnInteger)
     If Chr(KeyAscii) < "0" Or Chr(KeyAscii) > "9" Then
         KeyAscii = 0
     End If
 End Sub
-
 Private Sub txtboxRenbanketasuu_KeyPress(ByVal KeyAscii As MSForms.ReturnInteger)
     If Chr(KeyAscii) < "0" Or Chr(KeyAscii) > "9" Then
         KeyAscii = 0
     End If
 End Sub
-
 Private Sub UserForm_Initialize()
     '初期化処理として・・・
     Dim strRireki As String
@@ -192,7 +184,6 @@ Private Sub UserForm_Initialize()
         strMiddle = strMiddle & Mid(strRireki, byteLocalCounter, 1)
         strMiddle = strMiddle & Space(2)
     Next byteLocalCounter
-    
     strUpperRubi = RTrim(strUpperRubi)
     strMiddle = RTrim(strMiddle)
     byteLocalCounter = Len(strRireki)
@@ -206,9 +197,7 @@ Private Sub UserForm_Initialize()
     '判定用テキスト合体
     strHantei = strUpperRubi & vbCrLf & strMiddle & vbCrLf & strLowerRubi
     txtboxHanteiRireki = strHantei
-    
     txtboxTotalRirekiKetasuu.Text = Len(strRireki)
-    
     '既存機種リストボックスの初期化
     If Not IsTableExist(Table_Kishu) Then
         MsgBox "機種テーブルがありません。新規作成します"
@@ -234,5 +223,12 @@ Private Sub UserForm_Initialize()
     If Not strQRZuban = "" Then
         txtboxKishuName.Text = strQRZuban
     End If
-
+    '多分機種登録されてないからここに来たんだろうと言う事で
+    boolRegistOK = False
+    MsgBox "機種が登録されていなかったようなので登録画面に移行します。"
 End Sub
+Private Sub UserForm_Terminate()
+    '終了処理
+    strQRZuban = ""
+    strRegistRireki = ""
+End Sub

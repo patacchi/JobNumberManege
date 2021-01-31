@@ -1,14 +1,5 @@
-VERSION 1.0 CLASS
-BEGIN
-  MultiUse = -1  'True
-END
-Attribute VB_Name = "JobNumberMaster"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = True
-Option Explicit
-Private Sub btnSheet_to_DB_Click()
+Attribute VB_Name = "SheetCommon"
+Public Sub SheetToDB()
     'Job番号が変わるか、履歴が連続じゃなくないか、機種が変わった時を一区切りとしてSQL発行する
     Dim rngJobNumberStart As Range
     Dim rngRirekiStart As Range
@@ -20,6 +11,9 @@ Private Sub btnSheet_to_DB_Click()
     Set sqlbSheetToDB = New clsSQLStringBuilder
     Dim varRirekiNumber As Variant
     Dim varJobNumber As Variant
+    Dim longStartRirekiNumber As Long
+    Dim longEndRirekiNumber As Long
+    Dim longDuplicateRirekiNumber As Long
     Dim dblTimer As Double
     Dim boolArrowNextLoop As Boolean
     Dim boolSameData As Boolean
@@ -47,6 +41,7 @@ Private Sub btnSheet_to_DB_Click()
     KishuInfo = getKishuInfoByRireki(CStr(varRirekiNumber(1, 1)))
     'ここで機種登録成功フラグ立ってなかったら即終了で
     If Not boolRegistOK Then
+        Debug.Print "機種登録フラグNGにより終了"
         GoTo ErrorCatch
         Exit Sub
     End If
@@ -102,24 +97,27 @@ Private Sub btnSheet_to_DB_Click()
             .RenbanKeta = KishuInfo.RenbanKetasuu
             .TableName = Table_JobDataPri & KishuInfo.KishuName
         End With
-        Call sqlbSheetToDB.CreateInsertSQL
+        '重複データのチェック
+        longStartRirekiNumber = CLng(Right(sqlbSheetToDB.StartRireki, KishuInfo.RenbanKetasuu))
+        longEndRirekiNumber = longStartRirekiNumber + sqlbSheetToDB.Maisu - 1
+        longDuplicateRirekiNumber = GetRecordCountSimple(sqlbSheetToDB.TableName, Job_RirekiNumber, _
+                                    "BETWEEN " & longStartRirekiNumber & " AND " & longEndRirekiNumber & ";")
+        If longDuplicateRirekiNumber >= 1 Then
+            '重複ありなので、シートからの登録は無視する、最初の履歴位は表示してやろうか
+            MsgBox sqlbSheetToDB.StartRireki & " から始まる履歴で、 " & longDuplicateRirekiNumber & " 件の重複があったようです。今回の履歴は処理をスキップします。"
+        Else
+            Call sqlbSheetToDB.CreateInsertSQL
+        End If
         '次の機種用に、さっき取っておいた次の行分のKishuInfoに差し替え
         'KishuInfoは同機種だと初期化の時に同じものが入ってるはず
         KishuInfo = newKishuInfo
         longcurrentMaisuu = 0
     Loop While longCurrentRow < UBound(varRirekiNumber)
+    MsgBox "シートからの変換完了 " & UBound(varRirekiNumber) & " 件のデータを " & timer - dblTimer & "秒で処理しました"
     Debug.Print "シートからの変換完了 " & UBound(varRirekiNumber) & " 件のデータを " & timer - dblTimer & "秒で処理しました"
     Set sqlbSheetToDB = Nothing
     Exit Sub
 ErrorCatch:
         Debug.Print "btnSheet to DB Code: " & Err.Number & " Description: " & Err.Description
         Exit Sub
-End Sub
-
-Private Sub btnShowJobNumberManegeForm_Click()
-    frmJobNumberInput.Show
-End Sub
-
-Private Sub btnSQLTestFormShow_Click()
-    frmSQLTest.Show
-End Sub
+End Sub

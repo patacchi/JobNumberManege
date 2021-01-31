@@ -13,14 +13,12 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-
+Option Explicit
 Private Sub btnCancel_Click()
     txtboxQRString.Text = ""
     Unload Me
 '    frmQRAnalyze.Hide
 '    frmJobNumberInput.Show
-    
 End Sub
 Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     '何か入力されたら反応して
@@ -67,16 +65,15 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
                     strBuf = strBuf & Mid(strSplit(0), intCount, 1)
                 End If
             End If
-            
         End Select
         strJobNumber = strBuf
     Next intCount
     'QRコードの情報を元に、Job番号入力フォームに値をセットしていく
-    frmJobNumberInput.txtboxJobNumber.Text = strJobNumber
+    frmJobNumberInput.txtBoxJobNumber.Text = strJobNumber
     frmJobNumberInput.labelZuban.Caption = strQRZuban
-    frmJobNumberInput.txtboxMaisuu = intMaisuu
+    frmJobNumberInput.txtBoxMaisuu = intMaisuu
     Unload Me
-    frmJobNumberInput.txtboxStartRireki.SetFocus
+    frmJobNumberInput.txtBoxStartRireki.SetFocus
     Exit Sub
 '    frmJobNumberInput.Show
 ErrorCatcch:
@@ -86,9 +83,7 @@ ErrorCatcch:
     txtboxQRString.Enabled = False
     Unload Me
 End Sub
-
 Private Sub UserForm_Activate()
     txtboxQRString.Enabled = True
     txtboxQRString.SetFocus
-End Sub
-
+End Sub

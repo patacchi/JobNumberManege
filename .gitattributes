@@ -2,3 +2,4 @@
 *.cls diff=sjis
 *.frm diff=sjis
 *.frx diff=sjis
+/.gitignore merge=ours

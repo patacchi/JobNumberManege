@@ -1,7 +1,6 @@
 Attribute VB_Name = "PublicConst"
 Option Explicit
 'Option Base 1
-
 'office 2013導入により、mdbからaccdb形式に移行
 'DBをSQLite3に移行  2021_01_10 Pataccchi
 'Public Const constDatabasePath              As String = "Database_mdb"     'データベースディレクトリ
@@ -29,8 +28,6 @@ Public Const Job_RirekiNumber               As String = "RirekiNumber"          
 Public Const Job_Rireki                     As String = "Rireki"                'ヘッダ+履歴連番（作成するか要検討）
 Public Const Job_Mai_Per_Sheet              As String = "Mai_Per_Sheet"         '1シートあたりの枚数
 Public Const Job_Barcord_Read_Number        As String = "Barcord_Read_Number"   'バーコード読み取り数
-
-
 'レーザーバーコードDBテーブル・フィールド名定義
 'こっちは全部機種別にテーブルを分ける
 '通常バーコード記録テーブル
@@ -57,13 +54,12 @@ Public lngRecordAll As Long                                                     
 Public Const constDefaultArraySize          As Long = 6000                      'DBからの結果セットの配列の初期上限
 Public Const constAddArraySize              As Long = 2000                      '配列確保行数が足りなくなった場合の1回で増量する分
 Public Const errcNone                       As Integer = 0                      '正常終了
-Public Const errcDBAlreadyExistValue        As Integer = 2                      '既に同じ値がDB上に有る場合
-Public Const errcDBFileNotFound             As Integer = 4                      'DBファイル見つからないよぅ
-Public Const errcDBFieldNotFont             As Integer = 8                      'DBで指定されたフィールドが見つからない
-Public Const errcxlNameNotFound             As Integer = 16                     'Excelで名前定義が見つからない
-Public Const errcxlDataNothing              As Integer = 32                     'ExcelでデータNothing
-Public Const errcOthers                     As Integer = 16384                  'その他エラー
-
+Public Const errcDBAlreadyExistValue        As Integer = -2                      '既に同じ値がDB上に有る場合
+Public Const errcDBFileNotFound             As Integer = -4                      'DBファイル見つからないよぅ
+Public Const errcDBFieldNotFont             As Integer = -8                      'DBで指定されたフィールドが見つからない
+Public Const errcxlNameNotFound             As Integer = -16                     'Excelで名前定義が見つからない
+Public Const errcxlDataNothing              As Integer = -32                     'ExcelでデータNothing
+Public Const errcOthers                     As Integer = -16384                  'その他エラー
 '機種情報を格納する構造体
 Public Type typKishuInfo
     KishuHeader As String
@@ -76,9 +72,7 @@ Public Type typMaisuuRireki
     From As String
     To As String
 End Type
-
 Public arrKishuInfoGlobal() As typKishuInfo
-
 'いんすーとする時のフィールド定義をもうここでハードコーディングしちゃう・・・
 'テーブルが増えるたびに記述すること・・・
 'どうやら配列は定数に出来ないようなので、SQLBuilderのコンストラクタ内で初期化する
@@ -90,4 +84,4 @@ Public newMaisuData() As typMaisuuRireki
 Public strRegistRireki As String                                                '機種登録時履歴、フォーム間の受け渡しに使う
 Public strQRZuban As String                                                     '指示書QRコード読み取り時の図番格納、主に機種登録で使う
 Public boolRegistOK As Boolean                                                  '機種登録が成功したらTrueフラグを立てる
-Public boolNoTableKishuRecord As Boolean                                        '機種テーブルにデータが存在しない場合True、初期のみ
+Public boolNoTableKishuRecord As Boolean                                        '機種テーブルにデータが存在しない場合True、初期のみ

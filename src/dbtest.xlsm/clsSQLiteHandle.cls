@@ -18,12 +18,13 @@ Private myRecord As Variant             '結果として帰す配列（バリアント）myRecor
 Private isInitialize As Boolean         'イニシャライズ済みかどうか
 Private isDBOpen As Boolean             'DBがオープン済みかどうか
 Private isStatement As Boolean          'Statementのハンドルが有効（True）かどうか
-
+Private longRecordCount As Long         'Select時の （SQLITE_ROWの）数 = ヒットしたレコードの数を記録
 Private Sub Class_Initialize()
     'コンストラクタ（クラスインスタンス生成時に最初に実行される）
     isInitialize = False
     isDBOpen = False
     longDBRowIndex = 0
+    longRecordCount = 0
     myRecord = Array(0)
 End Sub
 Private Sub Class_Terminate()
@@ -56,9 +57,7 @@ Property Get RS() As Variant
         RS = Nothing
         Exit Property
     End If
-    
     RS = myRecord(longDBRowIndex)
-
 End Property
 Property Get RS_Array(Optional ByRef boolPlusTytle As Boolean) As Variant
     'RecoredSetをそのまま配列で返せないかと
@@ -66,33 +65,37 @@ Property Get RS_Array(Optional ByRef boolPlusTytle As Boolean) As Variant
     Dim varArray As Variant
     Dim longRowCounter As Long
     Dim longColumnCount As Long
+    On Error GoTo ErrorCatch
     varArray = Array()
-    ReDim varArray(UBound(myRecord, 1), UBound(myRecord(0), 1))
     '1次元目の要素数分ループ
     If boolPlusTytle = True Then
+        ReDim varArray(UBound(myRecord, 1), UBound(myRecord(0), 1))
         For longRowCounter = LBound(myRecord, 1) To UBound(myRecord, 1)
             For longColumnCount = LBound(myRecord(longRowCounter), 1) To UBound(myRecord(longRowCounter), 1)
                 varArray(longRowCounter, longColumnCount) = myRecord(longRowCounter)(longColumnCount)
             Next longColumnCount
         Next longRowCounter
-        
     Else
         'タイトル行を取得しない場合はこっち
+        ReDim varArray(UBound(myRecord, 1) - 1, UBound(myRecord(0), 1))
         For longRowCounter = LBound(myRecord, 1) + 1 To UBound(myRecord, 1)
             For longColumnCount = LBound(myRecord(longRowCounter), 1) To UBound(myRecord(longRowCounter), 1)
-                varArray(longRowCounter, longColumnCount) = myRecord(longRowCounter)(longColumnCount)
+                varArray(longRowCounter - 1, longColumnCount) = myRecord(longRowCounter)(longColumnCount)
             Next longColumnCount
         Next longRowCounter
     End If
     RS_Array = varArray
+    Exit Property
+ErrorCatch:
+    Debug.Print "RS_Array code: " & Err.Number & "Desctiption: " & Err.Description
 End Property
 Property Get RecordCount() As Long
     'レコード総数取得
     On Error GoTo ErrorCatch
 '    RecordCount = UBound(myRecord) - LBound(myRecord) + 1
     '先頭行にタイトルを入れる事にしたので行数調整
-    RecordCount = UBound(myRecord) - LBound(myRecord)
-
+'    RecordCount = UBound(myRecord) - LBound(myRecord)
+    RecordCount = longRecordCount
     Exit Property
 ErrorCatch:
     RecordCount = 0
@@ -122,17 +125,14 @@ Public Sub MoveNext(Optional ByVal longDBRow As Long)
     End If
     longDBRowIndex = longDBRowIndex + 1
 End Sub
-
 Public Sub MoveFirst()
     'DBステートメントカーソルを最初に戻す
     longDBRowIndex = 0
 End Sub
-
 Public Function Initialize(Optional ByRef strLibDirarg As String) As Boolean
     Dim isCollect As Boolean
     'イニシャライズ動作、まだDBに接続はしない
     On Error GoTo ErrorCatch
-    
     '特に指定されていなければ標準のDBファイルとディレクトリを指定する
     If strLibDirarg = "" Then
         'DBイニシャライズ
@@ -156,12 +156,11 @@ ErrorCatch:
     Debug.Print "Error in Initialize. code:" & Err.Number & " Description:" & Err.Description
     Class_Terminate
 End Function
-Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optional strDBPath As String) As Boolean
+Public Function DoSQL_No_Transaction(Optional ByVal strSQLarg As String, Optional strDBPath As String) As Boolean
     'SQL文字列とDBパス名（オプション）から、トランザクションなしの処理を行います（軽いの専用）
     Dim stepMsg As String
     Dim isCollect As Boolean
     Dim strErrorMsg As String
-    
     On Error GoTo ErrorCatch
     'まだDBイニシャライズしてないようならここでやる
     If Not isInitialize Then
@@ -174,7 +173,6 @@ Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optiona
         If strDBPath = "" Then
             strDBPath = CurDir & "\" & constJobNumberDBname
         End If
-        
         'Job情報DBファイルオープン（無ければ作るはず）
         RetVal = SQLite3Open(strDBPath, myDbHandle)
         If RetVal <> SQLITE_OK Then
@@ -184,7 +182,7 @@ Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optiona
 '            myRecord = Array()
 '            ReDim myRecord(0)
 '            myRecord(0) = Array(strErrorMsg)
-'            DoSQL_No_Transaction = False
+            DoSQL_No_Transaction = False
             GoTo NoTitleExit
             Exit Function
         End If
@@ -202,6 +200,7 @@ Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optiona
     If RetVal <> SQLITE_OK Then
         strErrorMsg = "SQLite3PrepareV2 returned" & RetVal & vbTab & SQLite3ErrMsg(myDbHandle)
         'Debug.Print "SQLite3PrepareV2 returned" & RetVal, SQLite3ErrMsg(myDbHandle)
+        DoSQL_No_Transaction = False
         GoTo NoTitleExit
     End If
     RetVal = SQLite3Step(myStmtHandle)
@@ -214,7 +213,7 @@ Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optiona
 '        myRecord = Array()
 '        ReDim myRecord(0)
 '        myRecord(0) = Array(strErrorMsg)
-'        DoSQL_No_Transaction = True
+        DoSQL_No_Transaction = True
 '        GoTo CloseAndExit
         GoTo NoTitleExit
         Exit Function
@@ -236,28 +235,24 @@ Public Function DoSQL_No_Transaction(Optional ByRef strSQLarg As String, Optiona
         DoSQL_No_Transaction = False
         GoTo CloseAndExit
     End If
-    
     '正常終了
     DoSQL_No_Transaction = True
     GoTo CloseAndExit
     Exit Function
-    
 NoTitleExit:
         Debug.Print strErrorMsg
         myRecord = Array()
         ReDim myRecord(1)
         myRecord(0) = Array("No Title")
         myRecord(1) = Array(strErrorMsg)
-        DoSQL_No_Transaction = False
         GoTo CloseAndExit
-    
 ErrorCatch:
     If Err.Number <> 0 Then
-        MsgBox Err.Number & vbCrLf & Err.Description
+'        MsgBox Err.Number & vbCrLf & Err.Description
     End If
+    Debug.Print "DoSQL_No_Transaction code: " & Err.Number & "description: " & Err.Description
     DoSQL_No_Transaction = False
     Exit Function
-    
 CloseAndExit:
     'StatamentHandle お掃除
     If isStatement Then
@@ -283,9 +278,41 @@ CloseAndExit:
 '    'DB接続フラグFalseに
 '    isDBOpen = False
     Exit Function
-
 End Function
-
+Public Function Do_SQL_With_Transaction(Optional ByVal strSQLarg As String, Optional strDBPath As String) As Boolean
+    'トランザクション処理ありのSQL実行
+    Dim sqlite3WithTrunsaction As clsSQLiteHandle
+    Set sqlite3WithTrunsaction = New clsSQLiteHandle
+    Dim isCollect As Boolean
+    Dim strOrigSQL As String
+    On Error GoTo RollBackAndExit
+    strOrigSQL = Me.SQL
+    'トランザクション開始
+    isCollect = DoSQL_No_Transaction("BEGIN TRANSACTION")
+    If Not isCollect Then
+        GoTo RollBackAndExit
+    End If
+    Me.SQL = strOrigSQL
+    isCollect = DoSQL_No_Transaction()
+    If Not isCollect Then
+        GoTo RollBackAndExit
+    End If
+    Do_SQL_With_Transaction = True
+    '成功したのでコミットを
+    isCollect = DoSQL_No_Transaction("COMMIT TRANSACTION")
+    If Not isCollect Then
+        GoTo RollBackAndExit
+    End If
+    Exit Function
+RollBackAndExit:
+    'トランザクションをロールバックしたうえで、終了する
+    DoSQL_No_Transaction ("ROLLBACK TRANSACTION")
+    MsgBox "ロールバック発生"
+    Do_SQL_With_Transaction = False
+    Debug.Print "Do_SQL_With_Transaction code: " & Err.Number & "Description: " & Err.Description
+    Set sqlite3WithTrunsaction = Nothing
+    Exit Function
+End Function
 Private Function Get_Data_and_Put_Arry() As Boolean
     'SQLiteステートメントに対し、SQLITE_DONEが出てくるまで配列にデータを突っ込む
     '次のデータがある場合はSQLITE_ROWが帰ってきてるはず
@@ -331,12 +358,12 @@ Private Function Get_Data_and_Put_Arry() As Boolean
         myRecord(longCounterRow) = varColumnData
 '        varColumnData = Array()
         longCounterRow = longCounterRow + 1
+'        longRecordCount = longRecordCount + 1
     Case Else
         'それ以外？そんははずは・・・
         Debug.Print "前提のIfの漏れです、何とかして・・・"
         longCounterRow = longCounterRow + 1
     End Select
-    
     Do While RetVal = SQLITE_ROW
         '配列に突っ込む処理開始
         'フィールドの数分ループする
@@ -348,12 +375,13 @@ Private Function Get_Data_and_Put_Arry() As Boolean
         myRecord(longCounterRow) = varColumnData
 '        varColumnData = Array()
         ' Rowカウンターインクリメント
+        'レコードカウンターもインクリメントしてあげて・・・
         longCounterRow = longCounterRow + 1
+        longRecordCount = longRecordCount + 1
         If UBound(myRecord) - longCounterRow <= 50 Then
             '初期確保上限まで50切ったら増量分だけ増やしてやる（重いよ・・・
             ReDim Preserve myRecord(UBound(myRecord) + constAddArraySize)
         End If
-
         RetVal = SQLite3Step(myStmtHandle)
     Loop
     'ダウンサイズ
@@ -368,7 +396,6 @@ ErrorCatch:
     Debug.Print "Get_Data_and_Put_Array code:" & Err.Number & " Description:" & Err.Description
     Exit Function
 End Function
-
 #If Win64 Then
 Private Function ColumnValue_InClass(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long, ByVal SQLiteType As Long) As Variant
 #Else
@@ -387,7 +414,6 @@ Private Function ColumnValue_InClass(ByVal stmtHandle As Long, ByVal ZeroBasedCo
             ColumnValue_InClass = Null
     End Select
 End Function
-
 Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
     If strLibDir = "" Then
         'Libディレクトリ指定されなかった場合は、DBディレクトリと同一とする（お引越し楽だから・・・）
@@ -408,7 +434,6 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
         DBInishialize = False
         Exit Function
     End If
-    
     'DBディレクトリに移動
     isCollect = ChcurrentforDB()
     If Not isCollect Then
@@ -418,16 +443,12 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
     End If
     DBInishialize = True
     isInitialize = True
-
 End Function
-
 Private Function ChcurrentforDB() As Boolean
     'DBファイルがあるディレクトリにカレントを変更する
     Dim strCurrentDir As String
-    Dim fso As New Scripting.FileSystemObject
+    Dim fso As New scripting.FileSystemObject
     On Error GoTo ErrorCatch
-    
-    
     'カレントディレクトリをブックのディレクトリに変更
     ChCurrentDirW (ThisWorkbook.Path)
     strCurrentDir = CurDir
@@ -440,16 +461,14 @@ Private Function ChcurrentforDB() As Boolean
     'データベースディレクトリに移動
     strCurrentDir = CurDir & "\" & constDatabasePath
     ChCurrentDirW (strCurrentDir)
-    
     '正常終了した場合はTrueを返す
     ChcurrentforDB = True
     Set fso = Nothing
     Exit Function
-    
     'エラー処理
 ErrorCatch:
     ChcurrentforDB = False
     MsgBox ("DBディレクトリに移動時にエラーが発生しました")
     Set fso = Nothing
     Exit Function
-End Function
+End Function

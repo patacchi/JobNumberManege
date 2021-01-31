@@ -13,7 +13,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
 'リサイズ実装のためWin32API使用
 'const
 Option Explicit
@@ -33,23 +32,18 @@ Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowL
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 Private Declare PtrSafe Function SetClassLongPtr Lib "user32" Alias "SetClassLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 #End If
-
 'フォームに最大化・リサイズ機能を追加する。
 Public Sub FormResize()
         Dim hwnd As LongPtr
         Dim WndStyle As LongPtr
-
     'ウィンドウハンドルの取得
     hwnd = GetActiveWindow()
     'ウィンドウのスタイルを取得
     WndStyle = GetWindowLongPtr(hwnd, GWL_STYLE)
     '最大・最小・サイズ変更を追加する
     WndStyle = WndStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX Or WS_SYSMENU
-
     Call SetWindowLongPtr(hwnd, GWL_STYLE, WndStyle)
 End Sub
-
-
 Private Sub UserForm_Activate()
     'リサイズ機能追加
     Call FormResize
@@ -58,14 +52,12 @@ Private Sub UserForm_Resize()
     'フォームリサイズ時に、中のリストボックスもサイズ変更してやる
     Dim intListHeight As Integer
     Dim intListWidth As Integer
-    
     intListHeight = Me.InsideHeight - listBoxSQLResult.Top * 2
     intListWidth = Me.InsideWidth - (txtboxSQLText.Left * 2) - txtboxSQLText.Width - (listBoxSQLResult.Left - txtboxSQLText.Width - txtboxSQLText.Left)
     If (intListHeight > 0 And intListWidth > 0) Then
         listBoxSQLResult.Height = intListHeight
         listBoxSQLResult.Width = intListWidth
     End If
-
 End Sub
 Private Sub btnBulkDataInput_Click()
     Dim strSQL
@@ -73,7 +65,6 @@ Private Sub btnBulkDataInput_Click()
     frmBulkInsertTest.Show
     'ある範囲の乱数の発生のさせ方
     'Int((範囲上限値 - 範囲下限値 + 1) * Rnd + 範囲下限値)
-
 End Sub
 Private Sub btnSQLGo_Click()
     'エラーチェックとかほとんどなし
@@ -89,18 +80,29 @@ Private Sub btnSQLGo_Click()
     IsDBFileExist
     isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
     If isCollect Then
-        varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+        If chkboxNoTitle.Value = True Then
+            'タイトルなしを希望の場合はこちら
+            varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=False)
+        Else
+            'デフォルトはタイトルあり
+            varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+        End If
     Else
         'エラーがあった場合の処理・・・なんだけど
         'エラーメッセージをそのまま表示すればいいのでは・・・
-        varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+        If chkboxNoTitle.Value = True Then
+            'タイトルなしを希望の場合はこちら
+            varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=False)
+        Else
+            'デフォルトはタイトルあり
+            varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+        End If
     End If
     If VarType(varRetValue) = vbEmpty Then
         listBoxSQLResult.Clear
         listBoxSQLResult.AddItem "データなし"
         Exit Sub
     End If
-    
     Set dbSQLite3 = Nothing
     With listBoxSQLResult
         .ColumnCount = UBound(varRetValue, 2) - LBound(varRetValue, 2) + 1
@@ -130,4 +132,4 @@ Private Sub listBoxSQLResult_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
         LTrim (strListText)
         MsgBox strListText
         Debug.Print strListText
-End Sub
+End Sub
