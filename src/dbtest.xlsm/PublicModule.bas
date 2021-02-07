@@ -22,7 +22,6 @@ Type SYSTEMTIME
 End Type
 '関数定義
 Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
-
 Public Function isUnicodePath(ByVal strCurrentPath As String) As Boolean
     'パス名にUnicodeが含まれていればTrueを返し、イベント無効にする（マクロ実行しずらいよね）
     Dim strSJIS As String           'パス名を一旦SJISに変換したもの
@@ -579,4 +578,4 @@ Public Function GetNextRireki(ByVal strargTableName As String) As String
                     Right(String$(KishuLocal.RenbanKetasuu, "0") & CStr((CLng(Right(strLastRireki, KishuLocal.RenbanKetasuu)) + 1)), KishuLocal.RenbanKetasuu)
     GetNextRireki = strNewRireki
     Exit Function
-End Function
+End Function
