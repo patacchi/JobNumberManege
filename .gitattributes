@@ -3,3 +3,4 @@
 *.frm diff=sjis
 *.frx diff=sjis
 /.gitignore merge=ours
+/bin/dbtest.xlsm merge=ours
