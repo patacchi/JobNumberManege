@@ -44,6 +44,9 @@ Public Sub FormResize()
     WndStyle = WndStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX Or WS_SYSMENU
     Call SetWindowLongPtr(hwnd, GWL_STYLE, WndStyle)
 End Sub
+Private Sub btnFieldAndTableAdd_Click()
+    CheckNewField
+End Sub
 Private Sub UserForm_Activate()
     'リサイズ機能追加
     Call FormResize

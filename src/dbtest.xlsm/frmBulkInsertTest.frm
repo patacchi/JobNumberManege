@@ -17,11 +17,11 @@ Option Explicit
 Private Sub UserForm_Initialize()
     'テスト用にデータを何個か入れてやる
     Dim KishuInfo As typKishuInfo
-    txtboxStartRireki.Text = "Test0015T00000000001"
-    txtboxJobNumber.Text = "TT00121"
-    txtboxMaisuu.Text = 1000
+    txtBoxStartRireki.Text = "Test0015T00000000001"
+    txtBoxJobNumber.Text = "TT00121"
+    txtBoxMaisuu.Text = 1000
     txtBoxFieldList.Text = Job_Number & "," & Job_RirekiHeader & "," & Job_RirekiNumber & "," & Job_Rireki
-    KishuInfo = getKishuInfoByRireki(txtboxStartRireki.Text)
+    KishuInfo = getKishuInfoByRireki(txtBoxStartRireki.Text)
     txtboxTableName.Text = Table_JobDataPri & KishuInfo.KishuName
 End Sub
 Private Sub btnGoInsert_Click()
@@ -35,13 +35,13 @@ Private Sub btnGoInsert_Click()
     Dim sqlbBulkSQL As clsSQLStringBuilder
     On Error GoTo ErrorCatch
     Set sqlbBulkSQL = New clsSQLStringBuilder
-    KishuInfo = getKishuInfoByRireki(txtboxStartRireki.Text)
+    KishuInfo = getKishuInfoByRireki(txtBoxStartRireki.Text)
     '拾ってきた機種情報を元にいろいろごにょごにょ
     txtboxTableName.Text = Table_JobDataPri & KishuInfo.KishuName
     With sqlbBulkSQL
-        .StartRireki = txtboxStartRireki.Text
-        .JobNumber = txtboxJobNumber.Text
-        .Maisu = CLng(txtboxMaisuu.Text)
+        .StartRireki = txtBoxStartRireki.Text
+        .JobNumber = txtBoxJobNumber.Text
+        .Maisu = CLng(txtBoxMaisuu.Text)
         .TableName = txtboxTableName.Text
         '.FieldArray = Split(txtBoxFieldList.Text, ",")
         .FieldArray = arrFieldList_JobData

@@ -69,11 +69,11 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
         strJobNumber = strBuf
     Next intCount
     'QRコードの情報を元に、Job番号入力フォームに値をセットしていく
-    frmJobNumberInput.txtboxJobNumber.Text = strJobNumber
+    frmJobNumberInput.txtBoxJobNumber.Text = strJobNumber
     frmJobNumberInput.labelZuban.Caption = strQRZuban
-    frmJobNumberInput.txtboxMaisuu = intMaisuu
+    frmJobNumberInput.txtBoxMaisuu = intMaisuu
     Unload Me
-    frmJobNumberInput.txtboxStartRireki.SetFocus
+    frmJobNumberInput.txtBoxStartRireki.SetFocus
     Exit Sub
 '    frmJobNumberInput.Show
 ErrorCatcch:

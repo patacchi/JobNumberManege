@@ -96,6 +96,12 @@ Private Sub btnregistNewKishu_Click()
         txtboxRenbanketasuu.SetFocus
         Exit Sub
     End If
+    '連番、機種ヘッダ桁数がトータル桁数超えてないかどうか
+    If CInt((txtboxKishuHeader.Text) + CInt(txtboxRenbanketasuu.Text)) > CInt(txtboxTotalRirekiKetasuu.Text) Then
+        MsgBox "履歴ヘッダの桁数と連番桁数の合計が履歴のトータル桁数を超えています。"
+        txtboxKishuHeader.SetFocus
+        Exit Sub
+    End If
     On Error GoTo ErrorCatch
     If CByte(txtboxTotalRirekiKetasuu.Text) > constMaxRirekiKetasuu Then
         longMsgBoxReturn = MsgBox(prompt:="履歴の桁数が " & constMaxRirekiKetasuu & "桁を超えていますが、続行しますか？", Buttons:=vbYesNo)

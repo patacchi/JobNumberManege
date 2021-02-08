@@ -18,9 +18,9 @@ Option Explicit
 Private KishuInfoInfrmJobInput As typKishuInfo
 Private Sub frmJobNumberInput_Initialize()
     'フォーム初期化（全部消すだけ）
-    txtboxJobNumber.Text = ""
-    txtboxMaisuu.Text = ""
-    txtboxStartRireki = ""
+    txtBoxJobNumber.Text = ""
+    txtBoxMaisuu.Text = ""
+    txtBoxStartRireki = ""
     labelZuban.Caption = ""
     strQRZuban = ""
     strRegistRireki = ""
@@ -37,35 +37,42 @@ Private Sub btnInputRirekiNumber_Click()
     Dim longDuplicateNumber As Long                 '重複履歴の数
     Dim longMsgBoxRetCode As Long
     On Error GoTo ErrorCatch
-    If txtboxJobNumber.Text = Empty Or _
-        txtboxMaisuu.Text = Empty Or _
-        txtboxStartRireki.Text = Empty Then
+    If txtBoxJobNumber.Text = Empty Or _
+        txtBoxMaisuu.Text = Empty Or _
+        txtBoxStartRireki.Text = Empty Then
         MsgBox ("空白の項目があります。確認してください")
         Exit Sub
     End If
-    If CLng(txtboxMaisuu.Text) < 1 Then
+    If CLng(txtBoxMaisuu.Text) < 1 Then
         MsgBox ("枚数には1以上の整数を入力して下さい")
-        txtboxMaisuu.SetFocus
+        txtBoxMaisuu.SetFocus
         Exit Sub
     End If
     '時間計測開始
+    If Not labelZuban.Caption = "" Then
+        strQRZuban = labelZuban.Caption
+    End If
     dblTimer = timer()
     'スタート履歴からKishuInfoを引っ張ってくる
-    KishuInfoInfrmJobInput = getKishuInfoByRireki(txtboxStartRireki.Text)
+    KishuInfoInfrmJobInput = getKishuInfoByRireki(txtBoxStartRireki.Text)
+    If KishuInfoInfrmJobInput.KishuHeader = "" Then
+        'KishuInfoが取れてないということは失敗してるっぽいので、ここで処理中止
+        Exit Sub
+    End If
     Set sqlbJobInput = New clsSQLStringBuilder
     With sqlbJobInput
-        .JobNumber = CStr(txtboxJobNumber.Text)
+        .JobNumber = CStr(txtBoxJobNumber.Text)
         .FieldArray = arrFieldList_JobData
-        .StartRireki = CStr(txtboxStartRireki.Text)
-        .Maisu = CLng(txtboxMaisuu.Text)
+        .StartRireki = CStr(txtBoxStartRireki.Text)
+        .Maisu = CLng(txtBoxMaisuu.Text)
         .RenbanKeta = KishuInfoInfrmJobInput.RenbanKetasuu
         .TableName = Table_JobDataPri & KishuInfoInfrmJobInput.KishuName
     End With
     Set sqlbJobInput.FieldType = GetFieldTypeNameByTableName(sqlbJobInput.TableName)
-    If Not Len(txtboxStartRireki.Text) = KishuInfoInfrmJobInput.TotalRirekiketa Then
+    If Not Len(txtBoxStartRireki.Text) = KishuInfoInfrmJobInput.TotalRirekiketa Then
         MsgBox "履歴の桁数が登録されている機種名：" & KishuInfoInfrmJobInput.KishuName & " の " & _
                 KishuInfoInfrmJobInput.TotalRirekiketa & " 桁と違います。処理を中止します。"
-                txtboxStartRireki.SetFocus
+                txtBoxStartRireki.SetFocus
                 GoTo CloseAndExit
     End If
     'スタート履歴（の連番）とエンド履歴を算出し、重複がないかチェック
@@ -80,7 +87,7 @@ Private Sub btnInputRirekiNumber_Click()
         Select Case longMsgBoxRetCode
         Case vbYes
             '入力しなおし、つまり何もしないで脱出
-            txtboxStartRireki.SetFocus
+            txtBoxStartRireki.SetFocus
             GoTo CloseAndExit
         Case vbNo
             'そのまま続行
@@ -117,7 +124,7 @@ Private Sub btnQRFormShow_Click()
         KishuLocal = GetKishuinfoByZuban(labelZuban.Caption)
         If KishuLocal.KishuHeader = "" Then
             Debug.Print "QRコードからKishuInfo引っ張ったけど空だった"
-            txtboxStartRireki.Text = ""
+            txtBoxStartRireki.Text = ""
             Exit Sub
         End If
         '最新情報入力チェックボックスがTrueの場合は最新履歴を入力してやる
@@ -127,13 +134,13 @@ Private Sub btnQRFormShow_Click()
             If strNewRireki = "" Then
                 Debug.Print "最新履歴取得したが、空だった"
                 '空だったらヘッダは入れてやろう
-                txtboxStartRireki.Text = KishuLocal.KishuHeader
+                txtBoxStartRireki.Text = KishuLocal.KishuHeader
                 Exit Sub
             End If
-            txtboxStartRireki.Text = strNewRireki
+            txtBoxStartRireki.Text = strNewRireki
         Else
             'チェックされてない場合は、ヘッダのみを入力する
-            txtboxStartRireki.Text = KishuLocal.KishuHeader
+            txtBoxStartRireki.Text = KishuLocal.KishuHeader
         End If
     End If
 End Sub

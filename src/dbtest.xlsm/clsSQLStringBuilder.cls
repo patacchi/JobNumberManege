@@ -30,8 +30,8 @@ Private Sub Class_Initialize()
     'クラス初期化動作
     'なぜかここでフィールドリストの設定を行う
     arrFieldList_JobData = Split(Job_Number & "," & Job_RirekiHeader & "," & Job_RirekiNumber & "," & Job_Rireki & "," & Field_Initialdate, ",")
-    arrFieldList_Barcode = Split(BarcordNumber & "," & Laser_Rireki & "," & Field_Initialdate, ",")
-    arrFieldList_Retry = Split(BarcordNumber & "," & Retry_Rireki & "," & Retry_Reason & "," & Field_Initialdate, ",")
+    arrFieldList_Barcode = Split(Field_BarcordeNumber & "," & Laser_Rireki & "," & Field_Initialdate, ",")
+    arrFieldList_Retry = Split(Field_BarcordeNumber & "," & Retry_Rireki & "," & Retry_Reason & "," & Field_Initialdate, ",")
     strSQLBuilder = Empty
     intFieldCount = 0
 '    longRecordCount = 0

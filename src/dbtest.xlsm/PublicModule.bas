@@ -21,7 +21,7 @@ Type SYSTEMTIME
         wMilliseconds As Integer
 End Type
 '関数定義
-Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
+Public Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
 Public Function isUnicodePath(ByVal strCurrentPath As String) As Boolean
     'パス名にUnicodeが含まれていればTrueを返し、イベント無効にする（マクロ実行しずらいよね）
     Dim strSJIS As String           'パス名を一旦SJISに変換したもの
@@ -193,7 +193,7 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
     '続いてT_Barcorde バーコードテーブル（ピッてするやつ）
     strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Barcodepri & strKishuname & """ (" & vbCrLf
-    strSQL = strSQL & """" & BarcordNumber & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Field_BarcordeNumber & """ TEXT NOT NULL," & vbCrLf
     strSQL = strSQL & """" & Laser_Rireki & """ TEXT NOT NULL UNIQUE," & vbCrLf
     strSQL = strSQL & """" & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf
     strSQL = strSQL & """" & Field_Update & """ TEXT," & vbCrLf
@@ -207,7 +207,7 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     strSQL = ""
     '最後にリトライ履歴（いるの？これ）
     strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Retrypri & strKishuname & """ (" & vbCrLf
-    strSQL = strSQL & """" & BarcordNumber & """ TEXT NOT NULL," & vbCrLf
+    strSQL = strSQL & """" & Field_BarcordeNumber & """ TEXT NOT NULL," & vbCrLf
     strSQL = strSQL & """" & Laser_Rireki & """ TEXT NOT NULL," & vbCrLf
     strSQL = strSQL & """" & Retry_Reason & """ TEXT," & vbCrLf
     strSQL = strSQL & """" & Field_Initialdate & """ TEXT DEFAULT CURRENT_TIMESTAMP," & vbCrLf
@@ -240,10 +240,165 @@ Public Function CreateTable_by_KishuName(ByRef strKishuname As String) As String
     End If
     'インデックス作成終了
     Set dbSQLite3 = Nothing
+    '追加フィールド更新へ
+    Call CheckNewField
     CreateTable_by_KishuName = True
     Exit Function
 End Function
- Public Function getArryDimmensions(ByRef varArry As Variant) As Byte
+Public Sub CheckNewField()
+    Dim dbTableAdd As clsSQLiteHandle
+    Dim strSQL As String
+    Dim varTableList As Variant
+    Dim intTableCounter As Integer
+    Dim arrStr_Kishu_AppendField() As String
+    Dim arrStr_Kishu_Type() As String
+    Dim arrStr_Job_AppendField() As String
+    Dim arrStr_Job_Type() As String
+    Dim arrStr_BarCorde_AppendField() As String
+    Dim arrStr_BarCorde_Type() As String
+    Dim arrStr_Retry_AppendField() As String
+    Dim arrStr_Retry_Type() As String
+    Dim arrStr_Index_AppendField() As String
+    On Error GoTo ErrorCatch
+    '追加フィールド定義
+    arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number, ",")
+    arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Job_AppendField = Split(Job_KanbanChr & "," & Job_ProductDate & "," & Field_LocalInput & "," & Field_RemoteInput, ",")
+    arrStr_Job_Type = Split("TEXT" & "," & "TEXT" & "," & "NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_BarCorde_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
+    arrStr_BarCorde_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Retry_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
+    arrStr_Retry_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Index_AppendField = Split(Job_Number & "," & Field_Initialdate, ",")
+    Set dbTableAdd = New clsSQLiteHandle
+    'テーブルとかフィールドとかがんがん追加するやつ
+    If Not IsTableExist(Table_Kishu) Then
+        Call InitialDBCreate
+    End If
+    'ログテーブルを追加してやる
+    strSQL = ""
+    strSQL = strSQL & strAddTable1_NextTable & Table_Log & strAddTable2_Field1 & Log_ActionType
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_Table
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_StartRireki
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_Maisuu
+    strSQL = strSQL & strAddTable_NUMELIC_Next_Field & Log_JobNumber
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_RirekiHeader
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_BarcordNumber
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_SQL
+    strSQL = strSQL & strAddTable_TEXT_Next_Field & Field_LocalInput
+    strSQL = strSQL & strAddTable_NUMELIC_Next_Field & Field_RemoteInput & strAddTable_Numeric_Last
+    dbTableAdd.SQL = strSQL
+    Call dbTableAdd.DoSQL_No_Transaction
+    Set dbTableAdd = Nothing
+    'テーブル一覧を受け取る
+    Set dbTableAdd = New clsSQLiteHandle
+    dbTableAdd.SQL = "select name from sqlite_master where type = ""table"";"
+    Call dbTableAdd.DoSQL_No_Transaction
+    varTableList = dbTableAdd.RS_Array
+    Set dbTableAdd = Nothing
+    'テーブル数分ループ
+    For intTableCounter = LBound(varTableList, 1) To UBound(varTableList, 1)
+        If Mid(varTableList(intTableCounter, 0), 1, Len(Table_Kishu)) = Table_Kishu Then
+            '機種テーブル
+            'フィールド追加
+            Call AppendFieldbyTableName(varTableList(intTableCounter, 0), arrStr_Kishu_AppendField, arrStr_Kishu_Type)
+        ElseIf Mid(varTableList(intTableCounter, 0), 1, Len(Table_JobDataPri)) = Table_JobDataPri Then
+            'Jobテーブル
+            'フィールド追加
+            Call AppendFieldbyTableName(varTableList(intTableCounter, 0), arrStr_Job_AppendField, arrStr_Job_Type)
+            'Index追加
+            Call AppendIndexbyTableName(varTableList(intTableCounter, 0), arrStr_Index_AppendField)
+        ElseIf Mid(varTableList(intTableCounter, 0), 1, Len(Table_Barcodepri)) = Table_Barcodepri Then
+            'バーコードテーブル
+            'フィールド追加
+            Call AppendFieldbyTableName(varTableList(intTableCounter, 0), arrStr_BarCorde_AppendField, arrStr_BarCorde_Type)
+        ElseIf Mid(varTableList(intTableCounter, 0), 1, Len(Table_Retrypri)) = Table_Retrypri Then
+            'リトライテーブル
+            'フィールド追加
+            Call AppendFieldbyTableName(varTableList(intTableCounter, 0), arrStr_Retry_AppendField, arrStr_Retry_Type)
+        Else
+            Debug.Print "よくわからないテーブルだった"
+        End If
+    Next intTableCounter
+ErrorCatch:
+    Set dbTableAdd = Nothing
+    Debug.Print "AppendField code: " & Err.Number & "Description " & Err.Description
+    Exit Sub
+CloseAndExit:
+    Set dbTableAdd = Nothing
+    Exit Sub
+End Sub
+Public Sub AppendFieldbyTableName(ByVal strargTableName As String, ByRef arrargstrField() As String, ByRef arrargstrType() As String)
+    Dim dbAppendField As clsSQLiteHandle
+    Dim byteFieldCounter As Byte
+    Dim strSQL As String
+    For byteFieldCounter = LBound(arrargstrField) To UBound(arrargstrField)
+        If Not IsFieldExist(strargTableName, arrargstrField(byteFieldCounter)) Then
+            'フィールドが無いようなので、追加に入る
+            Set dbAppendField = New clsSQLiteHandle
+            strSQL = ""
+            strSQL = strSQL & strAddField1_NextTableName & strargTableName
+            strSQL = strSQL & strAddField2_NextFieldName & arrargstrField(byteFieldCounter)
+            If arrargstrType(byteFieldCounter) = "NUMERIC" Then
+                strSQL = strSQL & strAddFiels3_Numeric
+            Else
+                strSQL = strSQL & strADDField3_Text_Last
+            End If
+            dbAppendField.SQL = strSQL
+            Call dbAppendField.DoSQL_No_Transaction
+            Set dbAppendField = Nothing
+        End If
+    Next byteFieldCounter
+End Sub
+Public Function IsFieldExist(ByVal strargTableName As String, ByVal strargFieldName As String) As Boolean
+    '特定のテーブルに指定されたフィールドがあるかどうか
+    Dim dbIsField As clsSQLiteHandle
+    Dim varReturnValue As Variant
+    Dim bytFieldCounter As Byte
+    'テーブルのフィールド名一覧を取得
+    Set dbIsField = New clsSQLiteHandle
+    dbIsField.SQL = "select name from pragma_table_info(""" & strargTableName & """);"
+    Call dbIsField.DoSQL_No_Transaction
+    varReturnValue = dbIsField.RS_Array
+    Set dbIsField = Nothing
+    'フィールド数分ループ
+    For bytFieldCounter = LBound(varReturnValue, 1) To UBound(varReturnValue, 1)
+        If varReturnValue(bytFieldCounter, 0) = strargFieldName Then
+            IsFieldExist = True
+            Exit Function
+        End If
+    Next bytFieldCounter
+    IsFieldExist = False
+    Exit Function
+End Function
+Public Sub AppendIndexbyTableName(ByVal strargTableName As String, arrstrargField() As String)
+    Dim dbIndexAdd As clsSQLiteHandle
+    Dim byteFieldCounter As Byte
+    Dim strSQL As String
+    byteFieldCounter = LBound(arrstrargField)
+    Do While byteFieldCounter <= UBound(arrstrargField)
+        If byteFieldCounter = LBound(arrstrargField) Then
+            '初回のみ
+            strSQL = ""
+            strSQL = strSQL & strIndex1_NextTable & strargTableName
+            strSQL = strSQL & strIndex2_NextTable & strargTableName
+            strSQL = strSQL & strIndes3_Field1 & arrstrargField(byteFieldCounter)
+        End If
+        byteFieldCounter = byteFieldCounter + 1
+        If byteFieldCounter > UBound(arrstrargField) Then
+            'ここは最後に来るところ
+            strSQL = strSQL & strIndex5_Last
+        Else
+            '途中
+            strSQL = strSQL & strIndex4_FieldNext & arrstrargField(byteFieldCounter)
+        End If
+    Loop
+    Set dbIndexAdd = New clsSQLiteHandle
+    dbIndexAdd.SQL = strSQL
+    Call dbIndexAdd.DoSQL_No_Transaction
+    Set dbIndexAdd = Nothing
+End Sub
+Public Function getArryDimmensions(ByRef varArry As Variant) As Byte
     '配列の次元数を返す（Byteまでしか対応しないよ）
     Dim byteLocalCounter As Byte
     Dim longRows As Long
