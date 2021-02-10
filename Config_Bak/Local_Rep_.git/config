@@ -1,0 +1,25 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/patacchi/JobNumberManege.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[gui]
+	wmstate = normal
+	geometry = 813x435+104+104 211 196
+[remote "origin_Remote_Temp"]
+	url = https://github.com/patacchi/RemoteTest.git
+	fetch = +refs/heads/*:refs/remotes/origin_Remote_Temp/*
+[branch "Release_Binary"]
+	remote = origin
+	merge = refs/heads/Release_Binary
+[merge "ours"]
+	name = "Keep ours merge"
+	driver = true
+[branch "Develop"]
+	remote = origin
+	merge = refs/heads/Develop

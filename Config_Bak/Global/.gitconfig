@@ -1,0 +1,12 @@
+[user]
+	name = Patacchi
+	email = Patacchi@patamon.jp
+[gui]
+	recentrepo = //127.0.0.1/DBLearn/本体
+	encoding = utf-8
+[core]
+	quotepath = false
+	autoCRLF = false
+	pager = LESSCHARSET=utf-8 less
+[diff "sjis"]
+	textconv = iconv -f sjis -t UTF-8
