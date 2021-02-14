@@ -32,6 +32,10 @@ Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowL
 Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 Private Declare PtrSafe Function SetClassLongPtr Lib "user32" Alias "SetClassLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
 #End If
+'-------リスト表示のための定数定義
+'MS ゴシック（等幅）文字サイズ9ptの場合
+Private Const sglChrLengthToPoint = 6.3
+Private Const longMinimulPpiont = 20
 'フォームに最大化・リサイズ機能を追加する。
 Public Sub FormResize()
         Dim hwnd As LongPtr
@@ -43,6 +47,17 @@ Public Sub FormResize()
     '最大・最小・サイズ変更を追加する
     WndStyle = WndStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX Or WS_SYSMENU
     Call SetWindowLongPtr(hwnd, GWL_STYLE, WndStyle)
+End Sub
+Private Sub btnExportCSV_Click()
+    'CSV出力
+    Dim strFilePath As String
+    strFilePath = Application.GetSaveAsFilename(InitialFileName:="\\PC24929-tdms\DBLearn\Test\CSV_Output\", filefilter:="CSVファイル(*.csv),*.csv")
+    If strFilePath = "False" Then
+        Debug.Print "btnExportCSVでキャンセルが押された"
+        Exit Sub
+    End If
+    Call OutputArrayToCSV(Me.listBoxSQLResult.List, strFilePath)
+    Exit Sub
 End Sub
 Private Sub btnFieldAndTableAdd_Click()
     CheckNewField
@@ -79,6 +94,7 @@ Private Sub btnSQLGo_Click()
     Dim dbSQLite3 As clsSQLiteHandle
     Dim varRetValue As Variant
     Dim isCollect As Boolean
+    Dim strWidths As String
     Set dbSQLite3 = New clsSQLiteHandle
     IsDBFileExist
     isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
@@ -86,9 +102,11 @@ Private Sub btnSQLGo_Click()
         If chkboxNoTitle.Value = True Then
             'タイトルなしを希望の場合はこちら
             varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=False)
+            strWidths = GetColumnWidthString(varRetValue, 0)
         Else
             'デフォルトはタイトルあり
             varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+            strWidths = GetColumnWidthString(varRetValue, 1)
         End If
     Else
         'エラーがあった場合の処理・・・なんだけど
@@ -96,9 +114,11 @@ Private Sub btnSQLGo_Click()
         If chkboxNoTitle.Value = True Then
             'タイトルなしを希望の場合はこちら
             varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=False)
+            strWidths = GetColumnWidthString(varRetValue, 0)
         Else
             'デフォルトはタイトルあり
             varRetValue = dbSQLite3.RS_Array(boolPlusTytle:=True)
+            strWidths = GetColumnWidthString(varRetValue, 1)
         End If
     End If
     If VarType(varRetValue) = vbEmpty Then
@@ -109,12 +129,45 @@ Private Sub btnSQLGo_Click()
     Set dbSQLite3 = Nothing
     With listBoxSQLResult
         .ColumnCount = UBound(varRetValue, 2) - LBound(varRetValue, 2) + 1
-        '.ColumnWidths = "50;50;50;50;50;50;50;50"
+        .ColumnWidths = strWidths
         '.List = Join(varRetValue)
         .List = varRetValue
         '.AddItem (varRetValue(1)(1))
     End With
 End Sub
+Private Function GetColumnWidthString(ByRef argVarData As Variant, ByVal arglongIndex As Long) As String
+    '指定したデータ、行数（Index）から、ListBoxの幅（ポイント数を;で区切った文字列）として返す
+    Dim strWidth As String
+    Dim intFieldCounter As Integer
+    On Error GoTo ErrorCatch
+    strWidth = ""
+    For intFieldCounter = LBound(argVarData, 2) To UBound(argVarData, 2)
+        Select Case intFieldCounter
+            Case UBound(argVarData, 2)
+                '最後の場合;が後ろにいらない
+                If IsNull(argVarData(arglongIndex, intFieldCounter)) Then
+                    'フィールド値がNullの場合は表示しないでやって
+                    strWidth = strWidth & "0 pt"
+                Else
+                    strWidth = strWidth & CStr(Application.WorksheetFunction.Max(longMinimulPpiont, Len(argVarData(arglongIndex, intFieldCounter)) * sglChrLengthToPoint)) & "pt"
+                End If
+            Case Else
+                '最初から途中の場合
+                If IsNull(argVarData(arglongIndex, intFieldCounter)) Then
+                    'Nullだった場合
+                    strWidth = strWidth & "0 pt;"
+                Else
+                    strWidth = strWidth & CStr(Application.WorksheetFunction.Max(longMinimulPpiont, Len(argVarData(arglongIndex, intFieldCounter)) * sglChrLengthToPoint)) & "pt;"
+                End If
+        End Select
+    Next intFieldCounter
+    GetColumnWidthString = strWidth
+    Exit Function
+ErrorCatch:
+    Debug.Print "GetColumnWidth code: " & Err.Number & " Description :" & Err.Description
+    GetColumnWidthString = ""
+    Exit Function
+End Function
 Private Sub listBoxSQLResult_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     'リストダブルクリックしたらクリップボードにコピーしてみおよう
     Dim objDataObj As DataObject

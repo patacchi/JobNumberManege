@@ -319,7 +319,8 @@ Private Function BuildJobDataValuesList() As Boolean
         '規定数に達したので、文字結合の上、SQL実行し、SQL文クリア、フィールド再構築をする
         '今のところとりあえず方法がないので、Unique違反があった行は空いてるUpdateDateのフィールドに現在時刻を突っ込む
         'ループ抜けたら文字連結
-        strarrBuf(longCurrentElement - 1) = strarrBuf(longCurrentElement - 1) & vbCrLf & " on CONFLICT(RirekiNumber) do UPDATE set UpdateDate = CURRENT_TIMESTAMP"
+        strarrBuf(longCurrentElement - 1) = strarrBuf(longCurrentElement - 1) & vbCrLf & " on CONFLICT(RirekiNumber)" & _
+                                            " do UPDATE set UpdateDate = STRFTIME(""%Y-%m-%dT%H:%M:%f"",""now"",""localtime"")"
         Debug.Print "配列格納完了。バルク数 " & Me.BulkCount & " 、要素数 " & longCurrentElement & " 個で " & timer - dblTimer & " 秒掛かりました。"
         Set dbJobData = New clsSQLiteHandle
         'まずはValuesの中を連結してやる

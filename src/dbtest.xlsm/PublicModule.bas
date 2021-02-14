@@ -733,4 +733,53 @@ Public Function GetNextRireki(ByVal strargTableName As String) As String
                     Right(String$(KishuLocal.RenbanKetasuu, "0") & CStr((CLng(Right(strLastRireki, KishuLocal.RenbanKetasuu)) + 1)), KishuLocal.RenbanKetasuu)
     GetNextRireki = strNewRireki
     Exit Function
-End Function
+End Function
+Public Sub OutputArrayToCSV(ByRef vararg2DimentionsDataArray As Variant, ByVal strargFilePath As String, Optional ByVal strargFileEncoding As String = "UTF-8")
+    '二次元配列をCSVに吐き出す
+    Dim byteDimentions As Byte
+    Dim objFileStream As ADODB.Stream
+    Dim longRowCounter As Long
+    Dim longFieldCounter As Long
+    Dim strarrField() As String
+    Dim strLineBuffer As String
+    On Error GoTo ErrorCatch
+    byteDimentions = getArryDimmensions(vararg2DimentionsDataArray)
+    If Not byteDimentions = 2 Then
+        MsgBox "引数に二次元配列以外が与えられました。処理を中止します。"
+        Debug.Print "OutputArrayToCSV : Not 2 Dimension Array"
+        Exit Sub
+    End If
+    Set objFileStream = New ADODB.Stream
+    With objFileStream
+        'エンコード指定
+        .Charset = strargFileEncoding
+        '改行コード指定
+        .LineSeparator = adCRLF
+        .Open
+        '行数ループ
+        For longRowCounter = LBound(vararg2DimentionsDataArray, 1) To UBound(vararg2DimentionsDataArray, 1)
+            'フィールド数ループ、ここでラインバッファを組み立てる
+            'まずはstring配列にフィールド情報を入れて、Joinで連結する
+            ReDim strarrField(UBound(vararg2DimentionsDataArray, 2))
+            For longFieldCounter = LBound(vararg2DimentionsDataArray, 2) To UBound(vararg2DimentionsDataArray, 2)
+                If IsNull(vararg2DimentionsDataArray(longRowCounter, longFieldCounter)) Then
+                    'Nullの場合はNULLを入入力してやる
+                    strarrField(longFieldCounter) = "NULL"
+                Else
+                    '通常はこっち
+                    strarrField(longFieldCounter) = CStr(vararg2DimentionsDataArray(longRowCounter, longFieldCounter))
+                End If
+            Next longFieldCounter
+            strLineBuffer = Join(strarrField, ",")
+            .WriteText strLineBuffer, adWriteLine
+        Next longRowCounter
+        'ループが終わったらテキストファイル書き出す（上書き保存）
+        .SaveToFile strargFilePath, adSaveCreateOverWrite
+        .Close
+    End With
+    MsgBox "CSV出力完了 " & strargFilePath
+    Exit Sub
+ErrorCatch:
+    Debug.Print "OutputArrayToCSV code: " & Err.Number & " Description: " & Err.Description
+    Exit Sub
+End Sub
