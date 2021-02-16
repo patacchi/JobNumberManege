@@ -48,6 +48,10 @@ Public Sub FormResize()
     WndStyle = WndStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX Or WS_SYSMENU
     Call SetWindowLongPtr(hwnd, GWL_STYLE, WndStyle)
 End Sub
+Private Sub btnCreateInitialJSON_Click()
+    '初期テーブル作成用JSON確認・生成
+    Call CheckInitialTableJSON
+End Sub
 Private Sub btnExportCSV_Click()
     'CSV出力
     Dim strFilePath As String

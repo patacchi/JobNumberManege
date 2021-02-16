@@ -54,12 +54,98 @@ Public Function ChCurrentDirW(ByVal DirName As String)
     'StrPtrを介す必要がある・・？
     SetCurrentDirectoryW StrPtr(DirName)
 End Function
+Public Sub CheckInitialTableJSON()
+    '初期テーブル作成用のJSONがあるか確認する
+    Dim fsoJSON As FileSystemObject
+    Set fsoJSON = New FileSystemObject
+    Call ChCurrentToDBDirectory
+    If Not fsoJSON.FileExists(JSON_File_InitialDB) Then
+        MsgBox "初期テーブル作成用JSONが見つからないため作成します"
+        Debug.Print "何故か初期テーブル作成用JSONが見つからない、作成"
+        Call CreateInitialTableJSON
+    End If
+End Sub
+Public Sub CreateInitialTableJSON()
+    '初期テーブル作成用JSON作成
+    Dim dicJSONObject As Dictionary
+    Dim strJSON As String
+    Dim streamInitialJSON As ADODB.Stream
+    Dim sqlbInitial As clsSQLStringBuilder
+    Dim strSQLJsonTable As String
+    Dim strSQLKishu As String
+    Dim strSQLLog As String
+    Set dicJSONObject = New Dictionary
+    Set streamInitialJSON = New ADODB.Stream
+    Set sqlbInitial = New clsSQLStringBuilder
+    On Error GoTo ErrorCatch
+    'カレントをDBディレクトリに移動
+    Call ChCurrentToDBDirectory
+    'JSONテーブルSQL
+    strSQLJsonTable = strSQLJsonTable & strTable1_NextTable & sqlbInitial.addQuote(Table_JSON) & strTable2_Next1stField
+    strSQLJsonTable = strSQLJsonTable & sqlbInitial.addQuote(JSON_Field_Name) & strTable3_TEXT & strTable_NotNull & strTable_Unique & strTable4_EndRow
+    strSQLJsonTable = strSQLJsonTable & sqlbInitial.addQuote(JSON_Field_string) & strTable3_JSON & strTable_NotNull & strTable4_EndRow
+    strSQLJsonTable = strSQLJsonTable & sqlbInitial.addQuote(Field_Initialdate) & strTable3_TEXT & strTable_Default & "CURRENT_TIMESTAMP" & strTable4_EndRow
+    strSQLJsonTable = strSQLJsonTable & sqlbInitial.addQuote(Field_Update) & strTable3_TEXT & strTable5_EndSQL
+    '機種テーブルSQL
+    strSQLKishu = strSQLKishu & strTable1_NextTable & sqlbInitial.addQuote(Table_Kishu) & strTable2_Next1stField
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Kishu_Header) & strTable3_TEXT & strTable_NotNull & strTable_Unique & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Kishu_KishuName) & strTable3_TEXT & strTable_NotNull & strTable_Unique & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Kishu_KishuNickname) & strTable3_TEXT & strTable_NotNull & strTable_Unique & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Kishu_TotalKeta) & strTable3_NUMERIC & strTable_NotNull & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Kishu_RenbanKetasuu) & strTable3_NUMERIC & strTable_NotNull & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Field_Initialdate) & strTable3_TEXT & strTable_Default & "CURRENT_TIMESTAMP" & strTable4_EndRow
+    strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Field_Update) & strTable3_TEXT & strTable5_EndSQL
+    'JSONテーブル
+    dicJSONObject.Add Table_JSON, New Dictionary
+    dicJSONObject(Table_JSON).Add JSON_Table_SQL, strSQLJsonTable       'JSONテーブル作成用SQL
+    dicJSONObject(Table_JSON).Add JSON_Table_Description, "JSON情報格納テーブル"
+    '機種テーブル
+    dicJSONObject.Add Table_Kishu, New Dictionary
+    dicJSONObject(Table_Kishu).Add JSON_Table_SQL, strSQLKishu              'テーブル作成用SQL格納
+    dicJSONObject(Table_Kishu).Add JSON_Table_Description, "機種別情報格納テーブル、機種ヘッダ、履歴桁数・枚 per シートの情報等"
+    dicJSONObject(Table_Kishu).Add JSON_AppendField, New Dictionary
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_Header, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Header).Add JSON_Table_SQL           '機種ヘッダ作成用SQL格納
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Header).Add JSON_Table_Description, "機種判別ヘッダフィールド UNIQUE、NOT NULL制約"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_KishuName, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_KishuName).Add JSON_Table_SQL             '機種名SQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_KishuName).Add JSON_Table_Description, "機種名フィールド、原則制作指示書の図番 UNIQUE"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_KishuNickname, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_KishuNickname).Add JSON_Table_SQL    '機種通称名SQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_KishuNickname).Add JSON_Table_Description, "機種通称名、シート名やコンボボックスの項目に使う、日本語OK UNIQUE"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_TotalKeta, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_TotalKeta).Add JSON_Table_SQL        '機種トータルSQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_TotalKeta).Add JSON_Table_Description, "機種の履歴のトータル桁数 NUMERIC"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_RenbanKetasuu, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_RenbanKetasuu).Add JSON_Table_SQL    '機種連番桁数SQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_RenbanKetasuu).Add JSON_Table_Description, "機種の連番部分の桁数 NUMERIC"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_Mai_Per_Sheet, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Mai_Per_Sheet).Add JSON_Table_SQL    '機種、mai per sheetSQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Mai_Per_Sheet).Add JSON_Table_Description, "1シートあたりの枚数 NUMERIC"
+    dicJSONObject(Table_Kishu)(JSON_AppendField).Add Kishu_Barcord_Read_Number, New Dictionary
+'    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Barcord_Read_Number).Add JSON_Table_SQL  '機種、バーコード読み取り数SQL
+    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Barcord_Read_Number).Add JSON_Table_Description, "1シートあたりバーコードの数 NUMERIC"
+    strJSON = JsonConverter.ConvertToJson(dicJSONObject)
+    GoTo CloseAndExit
+    Exit Sub
+CloseAndExit:
+    Set dicJSONObject = Nothing
+    Set streamInitialJSON = Nothing
+    Set sqlbInitial = Nothing
+    Exit Sub
+ErrorCatch:
+    Debug.Print "CreateInitialJSON code: " & Err.Number & " Description: " & Err.Description
+    GoTo CloseAndExit
+    Exit Sub
+End Sub
 Public Function InitialDBCreate() As Boolean
     Dim isCollect As Boolean
     Dim strSQL  As String
     Dim dbSQLite3 As clsSQLiteHandle
     Set dbSQLite3 = New clsSQLiteHandle
     On Error GoTo ErrorCatch
+    'DBディレクトリへ移動
+    Call ChCurrentToDBDirectory
     '初期テーブル作成用SQL文作成(T_Kishu)
     strSQL = ""
     strSQL = "CREATE TABLE IF NOT EXISTS """ & Table_Kishu & """ (" & vbCrLf & """"
@@ -128,19 +214,17 @@ Public Sub ChCurrentToDBDirectory()
     'カレントディレクトリの取得（UNCパス対応）
     Dim strCurrentDir As String
     Dim fso As New scripting.FileSystemObject
-    'カレントディレクトリをブックのディレクトリに変更
-    ChCurrentDirW (ThisWorkbook.Path)
-    strCurrentDir = CurDir
-    'データベースディレクトリはある前提で進めるので不要
-    'そこにSQLiteのDLLあるから！
-'    'DataBaseディレクトリの存在有無確認"
-'    If fso.FolderExists(constDatabasePath) <> True Then
-'        'ディレクトリ存在しない場合作成しよ？
-'        MsgBox "データベースフォルダが無いため作成します。"
-'        MkDir constDatabasePath
-'    End If
+'    'カレントディレクトリをブックのディレクトリに変更
+'    ChCurrentDirW (ThisWorkbook.Path)
+'    strCurrentDir = CurDir
+    'DataBaseディレクトリの存在有無確認"
+    If fso.FolderExists(constDatabasePath) <> True Then
+        'ディレクトリ存在しない場合作成しよ？
+        MsgBox "データベースフォルダが無いため作成します。"
+        MkDir constDatabasePath
+    End If
     'データベースディレクトリに移動
-    strCurrentDir = CurDir & "\" & constDatabasePath
+    strCurrentDir = constDatabasePath
     ChCurrentDirW (strCurrentDir)
 End Sub
 Public Function GetNameRange(ByVal strSerchName As String, Optional ByRef shTarget As Worksheet)
@@ -263,8 +347,8 @@ Public Sub CheckNewField()
     '追加フィールド定義
     arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number, ",")
     arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
-    arrStr_Job_AppendField = Split(Job_KanbanChr & "," & Job_ProductDate & "," & Field_LocalInput & "," & Field_RemoteInput, ",")
-    arrStr_Job_Type = Split("TEXT" & "," & "TEXT" & "," & "NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Job_AppendField = Split(Job_KanbanChr & "," & Job_ProductDate & "," & Field_LocalInput & "," & Field_RemoteInput & "," & Job_KanbanNumber, ",")
+    arrStr_Job_Type = Split("TEXT" & "," & "TEXT" & "," & "NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
     arrStr_BarCorde_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
     arrStr_BarCorde_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
     arrStr_Retry_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
@@ -277,16 +361,16 @@ Public Sub CheckNewField()
     End If
     'ログテーブルを追加してやる
     strSQL = ""
-    strSQL = strSQL & strAddTable1_NextTable & Table_Log & strAddTable2_Field1 & Log_ActionType
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_Table
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_StartRireki
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_Maisuu
-    strSQL = strSQL & strAddTable_NUMELIC_Next_Field & Log_JobNumber
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_RirekiHeader
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_BarcordNumber
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Log_SQL
-    strSQL = strSQL & strAddTable_TEXT_Next_Field & Field_LocalInput
-    strSQL = strSQL & strAddTable_NUMELIC_Next_Field & Field_RemoteInput & strAddTable_Numeric_Last
+    strSQL = strSQL & strOLDAddTable1_NextTable & Table_Log & strOLDAddTable2_Field1_Next_Field & Log_ActionType
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_Table
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_StartRireki
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_Maisuu
+    strSQL = strSQL & strOLDAddTable_NUMELIC_Next_Field & Log_JobNumber
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_RirekiHeader
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_BarcordNumber
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Log_SQL
+    strSQL = strSQL & strOLDAddTable_TEXT_Next_Field & Field_LocalInput
+    strSQL = strSQL & strOLDAddTable_NUMELIC_Next_Field & Field_RemoteInput & strOLDAddTable_Numeric_Last
     dbTableAdd.SQL = strSQL
     Call dbTableAdd.DoSQL_No_Transaction
     Set dbTableAdd = Nothing
@@ -337,12 +421,16 @@ Public Sub AppendFieldbyTableName(ByVal strargTableName As String, ByRef arrargs
             'フィールドが無いようなので、追加に入る
             Set dbAppendField = New clsSQLiteHandle
             strSQL = ""
-            strSQL = strSQL & strAddField1_NextTableName & strargTableName
-            strSQL = strSQL & strAddField2_NextFieldName & arrargstrField(byteFieldCounter)
+            strSQL = strSQL & strOLDAddField1_NextTableName & strargTableName
+            strSQL = strSQL & strOLDAddField2_NextFieldName & arrargstrField(byteFieldCounter)
             If arrargstrType(byteFieldCounter) = "NUMERIC" Then
-                strSQL = strSQL & strAddFiels3_Numeric
-            Else
-                strSQL = strSQL & strADDField3_Text_Last
+                'NUMERICの場合
+                strSQL = strSQL & strOLDAddField3_Numeric_Last
+            ElseIf arrargstrType(byteFieldCounter) = "TEXT" Then
+                'TEXTの場合
+                strSQL = strSQL & strOLDAddField3_Text_Last
+            ElseIf arrargstrType(byteFieldCounter) = "JSON" Then
+                'JSONの場合
             End If
             dbAppendField.SQL = strSQL
             Call dbAppendField.DoSQL_No_Transaction
@@ -380,17 +468,17 @@ Public Sub AppendIndexbyTableName(ByVal strargTableName As String, arrstrargFiel
         If byteFieldCounter = LBound(arrstrargField) Then
             '初回のみ
             strSQL = ""
-            strSQL = strSQL & strIndex1_NextTable & strargTableName
-            strSQL = strSQL & strIndex2_NextTable & strargTableName
-            strSQL = strSQL & strIndes3_Field1 & arrstrargField(byteFieldCounter)
+            strSQL = strSQL & strOLDIndex1_NextTable & strargTableName
+            strSQL = strSQL & strOLDIndex2_NextTable & strargTableName
+            strSQL = strSQL & strOLDIndex3_Field1 & arrstrargField(byteFieldCounter)
         End If
         byteFieldCounter = byteFieldCounter + 1
         If byteFieldCounter > UBound(arrstrargField) Then
             'ここは最後に来るところ
-            strSQL = strSQL & strIndex5_Last
+            strSQL = strSQL & strOLDIndex5_Last
         Else
             '途中
-            strSQL = strSQL & strIndex4_FieldNext & arrstrargField(byteFieldCounter)
+            strSQL = strSQL & strOLDIndex4_FieldNext & arrstrargField(byteFieldCounter)
         End If
     Loop
     Set dbIndexAdd = New clsSQLiteHandle

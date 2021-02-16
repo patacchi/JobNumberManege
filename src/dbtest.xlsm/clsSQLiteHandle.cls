@@ -418,7 +418,8 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
     If strLibDir = "" Then
         'Libディレクトリ指定されなかった場合は、DBディレクトリと同一とする（お引越し楽だから・・・）
         'strLibDir = ThisWorkbook.Path + "\x64"
-        strLibDir = ThisWorkbook.Path & "\" & constDatabasePath
+'        strLibDir = ThisWorkbook.Path & "\" & constDatabasePath
+        strLibDir = constDatabasePath
     End If
     'イニシャライズ
     Dim InitReturn As Long
@@ -459,8 +460,9 @@ Private Function ChcurrentforDB() As Boolean
         MkDir constDatabasePath
     End If
     'データベースディレクトリに移動
-    strCurrentDir = CurDir & "\" & constDatabasePath
-    ChCurrentDirW (strCurrentDir)
+'    strCurrentDir = CurDir & "\" & constDatabasePath
+'    ChCurrentDirW (strCurrentDir)
+    Call ChCurrentToDBDirectory
     '正常終了した場合はTrueを返す
     ChcurrentforDB = True
     Set fso = Nothing
