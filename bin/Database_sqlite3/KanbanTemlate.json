@@ -1,0 +1,108 @@
+{
+   "KanbanTemplate" : {
+      "Master_Kei" : {
+         "Koutei1" : {
+            "Koutei_No" : "NO1",
+            "Koutei_Mei" : "QRコード印字"
+         },
+         "Koutei2" : {
+            "Koutei_No" : "NO2",
+            "Koutei_Mei" : "表面実装（はんだ面）*リフローパレット使用"
+         },
+         "Koutei3" : {
+            "Koutei_No" : "NO3",
+            "Koutei_Mei" : "表面実装（部品面）*リフローパレット使用"
+         },
+         "Koutei4" : {
+            "Koutei_No" : "NO4",
+            "Koutei_Mei" : "表面実装はんだ付け目視検査"
+         },
+         "Koutei5" : {
+            "Koutei_No" : "NO5",
+            "Koutei_Mei" : "表面実装はんだ付け機械検査"
+         },
+         "Koutei6" : {
+            "Koutei_No" : "NO6",
+            "Koutei_Mei" : "ｺｰﾃｨﾝｸﾞ塗布・乾燥  (塗布終了   ：    )"
+         },
+         "Koutei7" : {
+            "Koutei_No" : "NO7",
+            "Koutei_Mei" : "ｺｰﾃｨﾝｸﾞ確認(開始   ：   )(終了   ：   )"
+         },
+         "Koutei8" : {
+            "Koutei_No" : "NO8",
+            "Koutei_Mei" : "基板分割(開始   ：   )[ｺｰﾃｨﾝｸﾞ乾燥時間確認(   )]"
+         },
+         "Koutei9" : {
+            "Koutei_No" : "NO9",
+            "Koutei_Mei" : "バスバー取付け"
+         },
+         "Koutei10" : {
+            "Koutei_No" : "NO10",
+            "Koutei_Mei" : "ヒートシンク取付け"
+         },
+         "Koutei11" : {
+            "Koutei_No" : "NO11",
+            "Koutei_Mei" : "目視検査"
+         },
+         "Koutei12" : {
+            "Koutei_No" : "NO12",
+            "Koutei_Mei" : "反り確認"
+         },
+         "Koutei13" : {
+            "Koutei_No" : "NO13",
+            "Koutei_Mei" : "ファンクションテスター"
+         },
+         "Koutei14" : {
+            "Koutei_No" : "NO14",
+            "Koutei_Mei" : "出荷検査   (出荷日   /    )"
+         }
+      },
+      "E74_Kei" : {
+         "Koutei1" : {
+            "Koutei_No" : "NO1",
+            "Koutei_Mei" : "QRコード印刷"
+         },
+         "Koutei2" : {
+            "Koutei_No" : "NO2",
+            "Koutei_Mei" : "表面実装(部品面)"
+         },
+         "Koutei3" : {
+            "Koutei_No" : "NO3",
+            "Koutei_Mei" : "表面実装はんだ付け目視検査"
+         },
+         "Koutei4" : {
+            "Koutei_No" : "NO4",
+            "Koutei_Mei" : "表面実装はんだ付け機械検査"
+         },
+         "Koutei5" : {
+            "Koutei_No" : "NO5",
+            "Koutei_Mei" : "インサーキットテスター"
+         },
+         "Koutei6" : {
+            "Koutei_No" : "NO6",
+            "Koutei_Mei" : "ｺｰﾃｨﾝｸﾞ塗布・乾燥   (塗布終了   ：   )"
+         },
+         "Koutei7" : {
+            "Koutei_No" : "NO7",
+            "Koutei_Mei" : "ｺｰﾃｨﾝｸﾞ確認(開始   ：   )(終了   ：   )"
+         },
+         "Koutei8" : {
+            "Koutei_No" : "NO8",
+            "Koutei_Mei" : "LCD取付け(開始   ：   )[ｺｰﾃｨﾝｸﾞ乾燥時間確認(  )]"
+         },
+         "Koutei9" : {
+            "Koutei_No" : "NO9",
+            "Koutei_Mei" : "ファンクションテスター"
+         },
+         "Koutei10" : {
+            "Koutei_No" : "NO10",
+            "Koutei_Mei" : "基板分割"
+         },
+         "Koutei11" : {
+            "Koutei_No" : "NO11",
+            "Koutei_Mei" : "出荷検査   (出荷日    /    )"
+         }
+      }
+   }
+}

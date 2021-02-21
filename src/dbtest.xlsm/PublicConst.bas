@@ -23,6 +23,7 @@ Public Const Kishu_KishuNickname            As String = "KishuNickName"         
 Public Const Kishu_TotalKeta                As String = "TotalRirekiketa"       '総桁数フィールド（多分20しかないと思う）
 Public Const Kishu_RenbanKetasuu            As String = "RenbanKetasuu"         '連番桁数フィールド
 Public Const Kishu_Mai_Per_Sheet            As String = "Mai_Per_Sheet"         '1シートあたりの枚数
+Public Const Kishu_Sheet_Per_Rack           As String = "Sheet_Per_Rack"        '1ラックあたりのシート数
 Public Const Kishu_Barcord_Read_Number      As String = "Barcord_Read_Number"   'バーコード読み取り数
 'ログ情報格納テーブル定義
 'ログは基本的にトリガーで入力する
@@ -105,28 +106,57 @@ Public Type typKishuInfo
     KishuNickName As String
     TotalRirekiketa As Byte
     RenbanKetasuu As Byte
+    MaiPerSheet As Byte
+    SheetPerRack As Byte
+    BarcordReadNumber As Byte
 End Type
-Public Type typMaisuuRireki
-    From As String
-    To As String
+Public Type typQRDataField
+    JobNumber As String
+    Zuban As String
+    Maisuu As Integer
 End Type
 Public arrKishuInfoGlobal() As typKishuInfo
+'QR読んだらぐろばんる変数で保持してるので、そこに入力してやる(フォーム間のデータ受け渡しになるため）
+Public QRField As typQRDataField
 'いんすーとする時のフィールド定義をもうここでハードコーディングしちゃう・・・
 'テーブルが増えるたびに記述すること・・・
 'どうやら配列は定数に出来ないようなので、SQLBuilderのコンストラクタ内で初期化する
 Public arrFieldList_JobData() As String                                         'JobDataテーブルのフィールド定義
 Public arrFieldList_Barcode() As String                                         'Barcodeテーブルのフィールド定義
 Public arrFieldList_Retry() As String                                           'Retryテーブルのフィールド定義
-Public oldMaisuData() As typMaisuuRireki
-Public newMaisuData() As typMaisuuRireki
 Public strRegistRireki As String                                                '機種登録時履歴、フォーム間の受け渡しに使う
-Public strQRZuban As String                                                     '指示書QRコード読み取り時の図番格納、主に機種登録で使う
+'Public strQRZuban As String                                                     '指示書QRコード読み取り時の図番格納、主に機種登録で使う
 Public boolRegistOK As Boolean                                                  '機種登録が成功したらTrueフラグを立てる
 Public boolNoTableKishuRecord As Boolean                                        '機種テーブルにデータが存在しない場合True、初期のみ
+'-------リスト表示のための定数定義
+'MS ゴシック（等幅）文字サイズ9ptの場合
+Public Const sglChrLengthToPoint = 3.3
+Public Const longMinimulPpiont = 50
 '------------------------------------ここからJSONのターン---------------------------------
+'各Jsonファイルには、Name キーが必須、この名前でDBのNameに登録される
 Public Const JSON_File_InitialDB                As String = "InitialTable.json"     '初期テーブル情報格納JSON
 Public Const JSON_TableSetting_NextTableName    As String = "TableSetting"          'JSONで、テーブル定義のルート要素、JSONテーブルのNameに入る
 Public Const JSON_Table_SQL                     As String = "SQL"                   'テーブル作成時の初期SQL→SQLをそのまま入れてやる
 Public Const JSON_Table_Description             As String = "Description"           'テーブルの説明（後で）
 Public Const JSON_AppendField                   As String = "AppendField"           '追加フィールド定義開始（またDictionary）
-Public Const JSON_BarcordSheetSetting           As String = "BarcordeSheet"         'JSON バーコードシート定義ルート、JSONテーブルのNameに入る
+Public Const JSON_BarcordSheetSetting           As String = "BarcordeSheet"         'JSON バーコードシート定義ルート、JSONテーブルのNameに入る
+'-----------------------------------看板作成関係------------------------------------------
+Public Const Kanban_Json_Root                   As String = "KanbanTemplate"    '看板テンプレートのJSONのName、この名前がJSONテーブルのNameに入る
+'Jsonは、ルート（KanbanTempLate）下にテンプレ名、その下にKoutei1、その下にKoutei_NoとKoutei_MeiMei
+Public Const nameKanbanZuban                    As String = "Zuban"             '看板作成テンプレートにおいての図番名前定義
+Public Const nameKanbanMaisuu                   As String = "KanbanMaisu"       '看板の枚数、その看板に収納される枚数、E74だと68枚とか
+Public Const nameJobNumber                      As String = "KanbanJobNumber"   '看板のJob番号
+Public Const nameRackNumber                     As String = "RackNumber"        '看板のラック数、現在ラック数/合計ラック数
+Public Const nameJobMaisuu                      As String = "JobMaisuu"         '看板のJobの合計枚数
+Public Const nameFromRireki                     As String = "FromRireki"        'バーコード用の開始履歴
+Public Const nameToRireki                       As String = "ToRireki"          'バーコード用の終了履歴
+Public Const nameQRQty                          As String = "QRQty"             'QRコードの完了数、今まで電卓で計算してたやつ
+Public Const nameRangeKouteiNo                  As String = "RangeKouteiNo"     '工程NoのRange、セル結合してる関係上Noと工程名と別にする
+Public Const nameRangeKouteiName                As String = "RangeKouteiName"   '工程名Range
+Public Const MIN_Kanban_ChrCode                 As Byte = 65                    '看板文字列の文字コードの最小値（A）
+Public Const MAX_Kanban_ChrCode                 As Byte = 90                    '看板文字列の文字コードの最大値（Z)
+Public Const BarCodeHeight                      As Double = 39.75               '高さ 何故かバーコードコントロールのサイズ変わっちゃうので、ここで再設定・・・
+Public Const BarCodeWidth                       As Double = 74.25               '幅
+Public Const BarcodeTop                         As Double = 64.5                '上原点
+Public Const BarcodeFromLeft                    As Double = 278.25              'From左原点
+Public Const BarcodeToLeft                      As Double = 462                 'To左原点

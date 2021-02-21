@@ -14,6 +14,9 @@ End Sub
 Private Sub btnShowJobNumberManegeForm_Click()
     frmJobNumberInput.Show
 End Sub
+Private Sub btnShowKanbanDivide_Click()
+    frmKanban.Show
+End Sub
 Private Sub btnSQLTestFormShow_Click()
     frmSQLTest.Show
 End Sub

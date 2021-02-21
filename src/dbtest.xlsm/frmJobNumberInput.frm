@@ -22,7 +22,6 @@ Private Sub frmJobNumberInput_Initialize()
     txtboxMaisuu.Text = ""
     txtboxStartRireki = ""
     labelZuban.Caption = ""
-    strQRZuban = ""
     strRegistRireki = ""
     btnQRFormShow.SetFocus
 End Sub
@@ -50,7 +49,7 @@ Private Sub btnInputRirekiNumber_Click()
     End If
     '時間計測開始
     If Not labelZuban.Caption = "" Then
-        strQRZuban = labelZuban.Caption
+'        QRField.Zuban = labelZuban.Caption
     End If
     dblTimer = timer()
     'スタート履歴からKishuInfoを引っ張ってくる
@@ -119,9 +118,19 @@ Private Sub btnQRFormShow_Click()
     'QRコード読み取りフォーム表示
 '    frmJobNumberInput.Hide
     frmQRAnalyze.Show
+    If Not QRField.JobNumber = "" Then
+        txtboxJobNumber.Text = QRField.JobNumber
+    End If
+    If Not QRField.Maisuu = 0 Then
+        txtboxMaisuu.Text = QRField.Maisuu
+    End If
+    If Not QRField.Zuban = "" Then
+        labelZuban.Caption = QRField.Zuban
+        txtboxStartRireki.SetFocus
+    End If
     If Not labelZuban.Caption = "" Then
         '図番に何か入ってたらKishuInfoを取得してみて、その情報をもとに機種ヘッダを履歴ボックスに入力してやる
-        KishuLocal = GetKishuinfoByZuban(labelZuban.Caption)
+        KishuLocal = GetKishuinfoByKishuName(labelZuban.Caption)
         If KishuLocal.KishuHeader = "" Then
             Debug.Print "QRコードからKishuInfo引っ張ったけど空だった"
             txtboxStartRireki.Text = ""

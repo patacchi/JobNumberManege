@@ -59,6 +59,36 @@ Property Get RS() As Variant
     End If
     RS = myRecord(longDBRowIndex)
 End Property
+Property Get RS_Array_Dictionary() As Dictionary
+    'RecoredSetをそのまま配列で返せないかと
+    '扱いやすいように二次元配列に入れなおしてから返す
+    '更にDictionary型で返すようにした
+    Dim dicArrayLocal As Dictionary
+    Dim strArrFieldName() As String
+    Dim longRowCounter As Long
+    Dim longColumnCount As Long
+    Set dicArrayLocal = New Dictionary
+    On Error GoTo ErrorCatch
+    '1次元目の要素数分ループ
+    'フィールドのリストを取得
+    ReDim strArrFieldName(UBound(myRecord(LBound(myRecord, 1)), 1))
+    For longColumnCount = LBound(myRecord(LBound(myRecord, 1)), 1) To UBound(myRecord(LBound(myRecord, 1)), 1)
+        strArrFieldName(longColumnCount) = myRecord(LBound(myRecord, 1))(longColumnCount)
+    Next longColumnCount
+    'タイトル行を取得しない場合はこっち
+    '行数分ループ
+    For longRowCounter = LBound(myRecord, 1) + 1 To UBound(myRecord, 1)
+        dicArrayLocal.Add CStr((longRowCounter)), New Dictionary
+        For longColumnCount = LBound(myRecord(longRowCounter), 1) To UBound(myRecord(longRowCounter), 1)
+'            varArray(longRowCounter - 1, longColumnCount) = myRecord(longRowCounter)(longColumnCount)
+            dicArrayLocal(CStr(longRowCounter)).Add (strArrFieldName(longColumnCount)), myRecord(longRowCounter)(longColumnCount)
+        Next longColumnCount
+    Next longRowCounter
+    Set RS_Array_Dictionary = dicArrayLocal
+    Exit Property
+ErrorCatch:
+    Debug.Print "RS_Array code: " & Err.Number & " Desctiption: " & Err.Description
+End Property
 Property Get RS_Array(Optional ByRef boolPlusTytle As Boolean) As Variant
     'RecoredSetをそのまま配列で返せないかと
     '扱いやすいように二次元配列に入れなおしてから返す
@@ -87,7 +117,7 @@ Property Get RS_Array(Optional ByRef boolPlusTytle As Boolean) As Variant
     RS_Array = varArray
     Exit Property
 ErrorCatch:
-    Debug.Print "RS_Array code: " & Err.Number & "Desctiption: " & Err.Description
+    Debug.Print "RS_Array code: " & Err.Number & " Desctiption: " & Err.Description
 End Property
 Property Get RecordCount() As Long
     'レコード総数取得
@@ -436,7 +466,8 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
         Exit Function
     End If
     'DBディレクトリに移動
-    isCollect = ChcurrentforDB()
+'    isCollect = ChcurrentforDB()
+    isCollect = ChCurrentToDBDirectory
     If Not isCollect Then
         MsgBox "DBディレクトリ存在確認中にエラー発生"
         DBInishialize = False
@@ -444,33 +475,4 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
     End If
     DBInishialize = True
     isInitialize = True
-End Function
-Private Function ChcurrentforDB() As Boolean
-    'DBファイルがあるディレクトリにカレントを変更する
-    Dim strCurrentDir As String
-    Dim fso As New scripting.FileSystemObject
-    On Error GoTo ErrorCatch
-    'カレントディレクトリをブックのディレクトリに変更
-    ChCurrentDirW (ThisWorkbook.Path)
-    strCurrentDir = CurDir
-    'DataBaseディレクトリの存在有無確認"
-    If fso.FolderExists(constDatabasePath) <> True Then
-        'ディレクトリ存在しない場合作成しよ？
-        MsgBox "データベースフォルダが無いため作成します。"
-        MkDir constDatabasePath
-    End If
-    'データベースディレクトリに移動
-'    strCurrentDir = CurDir & "\" & constDatabasePath
-'    ChCurrentDirW (strCurrentDir)
-    Call ChCurrentToDBDirectory
-    '正常終了した場合はTrueを返す
-    ChcurrentforDB = True
-    Set fso = Nothing
-    Exit Function
-    'エラー処理
-ErrorCatch:
-    ChcurrentforDB = False
-    MsgBox ("DBディレクトリに移動時にエラーが発生しました")
-    Set fso = Nothing
-    Exit Function
 End Function

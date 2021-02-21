@@ -13,40 +13,9 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-'リサイズ実装のためWin32API使用
-'const
 Option Explicit
-Private Const GWL_STYLE As Long = (-16)                     'ウィンドウスタイルのハンドラ番号
-Private Const WS_MAXIMIZEBOX As Long = &H10000  'ウィンドウスタイルで最大化ボタンをつける
-Private Const WS_MINIMIZEBOX As Long = &H20000  'ウィンドウスタイルで最小化ボタンを付ける
-Private Const WS_THICKFRAME As Long = &H40000   'ウィンドウスタイルでサイズ変更をつける
-Private Const WS_SYSMENU As Long = &H80000      'ウィンドウスタイルでコントロールメニューボックスをもつウィンドウを作成する
-'-----Windows API宣言-----
-Private Declare PtrSafe Function GetActiveWindow Lib "user32" () As LongPtr
-#If Win64 Then
-Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongPtrA" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
-Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-Private Declare PtrSafe Function SetClassLongPtr Lib "user32" Alias "SetClassLongPtrA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-#Else
-Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
-Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-Private Declare PtrSafe Function SetClassLongPtr Lib "user32" Alias "SetClassLongA" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
-#End If
-'-------リスト表示のための定数定義
-'MS ゴシック（等幅）文字サイズ9ptの場合
-Private Const sglChrLengthToPoint = 6.3
-Private Const longMinimulPpiont = 20
-'フォームに最大化・リサイズ機能を追加する。
-Public Sub FormResize()
-        Dim hwnd As LongPtr
-        Dim WndStyle As LongPtr
-    'ウィンドウハンドルの取得
-    hwnd = GetActiveWindow()
-    'ウィンドウのスタイルを取得
-    WndStyle = GetWindowLongPtr(hwnd, GWL_STYLE)
-    '最大・最小・サイズ変更を追加する
-    WndStyle = WndStyle Or WS_THICKFRAME Or WS_MAXIMIZEBOX Or WS_MINIMIZEBOX Or WS_SYSMENU
-    Call SetWindowLongPtr(hwnd, GWL_STYLE, WndStyle)
+Private Sub btnCheckKishuTable_Click()
+    Call CheckKishuTable_Field
 End Sub
 Private Sub btnCreateInitialJSON_Click()
     '初期テーブル作成用JSON確認・生成
@@ -131,6 +100,10 @@ Private Sub btnSQLGo_Click()
         Exit Sub
     End If
     Set dbSQLite3 = Nothing
+    If chkBoxMaxLength.Value = True Then
+        '最大文字数検索をしたいそうで
+        strWidths = GetColumnWidthString(varRetValue, boolMaxLengthFind:=True)
+    End If
     With listBoxSQLResult
         .ColumnCount = UBound(varRetValue, 2) - LBound(varRetValue, 2) + 1
         .ColumnWidths = strWidths
@@ -139,39 +112,6 @@ Private Sub btnSQLGo_Click()
         '.AddItem (varRetValue(1)(1))
     End With
 End Sub
-Private Function GetColumnWidthString(ByRef argVarData As Variant, ByVal arglongIndex As Long) As String
-    '指定したデータ、行数（Index）から、ListBoxの幅（ポイント数を;で区切った文字列）として返す
-    Dim strWidth As String
-    Dim intFieldCounter As Integer
-    On Error GoTo ErrorCatch
-    strWidth = ""
-    For intFieldCounter = LBound(argVarData, 2) To UBound(argVarData, 2)
-        Select Case intFieldCounter
-            Case UBound(argVarData, 2)
-                '最後の場合;が後ろにいらない
-                If IsNull(argVarData(arglongIndex, intFieldCounter)) Then
-                    'フィールド値がNullの場合は表示しないでやって
-                    strWidth = strWidth & "0 pt"
-                Else
-                    strWidth = strWidth & CStr(Application.WorksheetFunction.Max(longMinimulPpiont, Len(argVarData(arglongIndex, intFieldCounter)) * sglChrLengthToPoint)) & "pt"
-                End If
-            Case Else
-                '最初から途中の場合
-                If IsNull(argVarData(arglongIndex, intFieldCounter)) Then
-                    'Nullだった場合
-                    strWidth = strWidth & "0 pt;"
-                Else
-                    strWidth = strWidth & CStr(Application.WorksheetFunction.Max(longMinimulPpiont, Len(argVarData(arglongIndex, intFieldCounter)) * sglChrLengthToPoint)) & "pt;"
-                End If
-        End Select
-    Next intFieldCounter
-    GetColumnWidthString = strWidth
-    Exit Function
-ErrorCatch:
-    Debug.Print "GetColumnWidth code: " & Err.Number & " Description :" & Err.Description
-    GetColumnWidthString = ""
-    Exit Function
-End Function
 Private Sub listBoxSQLResult_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     'リストダブルクリックしたらクリップボードにコピーしてみおよう
     Dim objDataObj As DataObject

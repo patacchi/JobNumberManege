@@ -22,17 +22,21 @@ Private Sub btnCancel_Click()
 End Sub
 Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     '何か入力されたら反応して
+    'グローバル変数のQRFieldを更新したら仕事は終わり、その先はそれぞれで処理して
     Dim strSplit As Variant
     Dim strJobNumber As String
     Dim intMaisuu As Integer
     Dim intCount As Integer
     Dim strBuf As String
+    Dim qrLocal As typQRDataField
     If txtboxQRString.Text = "" Then
         Debug.Print "String Empty"
         Exit Sub
     End If
     On Error GoTo ErrorCatcch
     strSplit = Split(txtboxQRString.Text, ",")
+    'グローバル変数を初期化してやる
+    QRField = qrLocal
     If UBound(strSplit) < 4 Then
         '要素数が4以下の場合は指示書のQRコードじゃないっぽい
         MsgBox "指示書のQRコード以外が読み込まれた可能性があります。"
@@ -42,9 +46,10 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
         Exit Sub
     End If
     '枚数と図番をQRコードから入力してやる
-    intMaisuu = CInt(strSplit(3))
+    qrLocal.Maisuu = CInt(strSplit(3))
     '図番は機種登録でも使うかもしれないので、ぐろばんる変数に格納
-    strQRZuban = CStr(strSplit(1))
+'    strQRZuban = CStr(strSplit(1))
+    qrLocal.Zuban = CStr(strSplit(1))
     'ジョブ番号の空白の連続をマージする
     strBuf = ""
     For intCount = 1 To Len(strSplit(0))
@@ -66,14 +71,15 @@ Private Sub txtboxQRString_Exit(ByVal Cancel As MSForms.ReturnBoolean)
                 End If
             End If
         End Select
-        strJobNumber = strBuf
     Next intCount
+    qrLocal.JobNumber = strBuf
+    QRField = qrLocal
     'QRコードの情報を元に、Job番号入力フォームに値をセットしていく
-    frmJobNumberInput.txtboxJobNumber.Text = strJobNumber
-    frmJobNumberInput.labelZuban.Caption = strQRZuban
-    frmJobNumberInput.txtboxMaisuu = intMaisuu
+'    frmJobNumberInput.txtboxJobNumber.Text = strJobNumber
+'    frmJobNumberInput.labelZuban.Caption = strQRZuban
+'    frmJobNumberInput.txtboxMaisuu = intMaisuu
     Unload Me
-    frmJobNumberInput.txtboxStartRireki.SetFocus
+'    frmJobNumberInput.txtboxStartRireki.SetFocus
     Exit Sub
 '    frmJobNumberInput.Show
 ErrorCatcch:

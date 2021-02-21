@@ -67,6 +67,7 @@ Public Sub CheckInitialTableJSON()
 End Sub
 Public Sub CreateInitialTableJSON()
     '初期テーブル作成用JSON作成
+    '格納する先のJsonテーブルが無ければついでに作っちゃう
     Dim dicJSONObject As Dictionary
     Dim strJSON As String
     Dim streamInitialJSON As ADODB.Stream
@@ -74,6 +75,7 @@ Public Sub CreateInitialTableJSON()
     Dim strSQLJsonTable As String
     Dim strSQLKishu As String
     Dim strSQLLog As String
+    Dim dbCreateTable As clsSQLiteHandle
     Set dicJSONObject = New Dictionary
     Set streamInitialJSON = New ADODB.Stream
     Set sqlbInitial = New clsSQLStringBuilder
@@ -96,6 +98,8 @@ Public Sub CreateInitialTableJSON()
     strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Field_Initialdate) & strTable3_TEXT & strTable_Default & "CURRENT_TIMESTAMP" & strTable4_EndRow
     strSQLKishu = strSQLKishu & sqlbInitial.addQuote(Field_Update) & strTable3_TEXT & strTable5_EndSQL
     'JSONテーブル
+    '--------------------------------------------ここからJSONに変換するためのDictionaryを組み立てていく-------------------
+    dicJSONObject.Add "Name", JSON_TableSetting_NextTableName
     dicJSONObject.Add Table_JSON, New Dictionary
     dicJSONObject(Table_JSON).Add JSON_Table_SQL, strSQLJsonTable       'JSONテーブル作成用SQL
     dicJSONObject(Table_JSON).Add JSON_Table_Description, "JSON情報格納テーブル"
@@ -126,6 +130,13 @@ Public Sub CreateInitialTableJSON()
 '    dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Barcord_Read_Number).Add JSON_Table_SQL  '機種、バーコード読み取り数SQL
     dicJSONObject(Table_Kishu)(JSON_AppendField)(Kishu_Barcord_Read_Number).Add JSON_Table_Description, "1シートあたりバーコードの数 NUMERIC"
     strJSON = JsonConverter.ConvertToJson(dicJSONObject)
+    If Not IsTableExist(Table_JSON) Then
+        'JSONテーブルがないなら、とりあえず作っちゃおう
+        Set dbCreateTable = New clsSQLiteHandle
+        dbCreateTable.SQL = dicJSONObject(Table_JSON)(JSON_Table_SQL)
+        dbCreateTable.DoSQL_No_Transaction
+        Set dbCreateTable = Nothing
+    End If
     GoTo CloseAndExit
     Exit Sub
 CloseAndExit:
@@ -173,7 +184,8 @@ ErrorCatch:
     Exit Function
 End Function
 Public Function registNewKishu_to_KishuTable(ByVal strKishuheader As String, ByVal strKishuname As String, ByVal strKishuNickname As String, _
-                                ByVal byteTotalKetasu As Byte, ByVal byteRenbanKetasu As Byte) As Boolean
+                                ByVal byteTotalKetasu As Byte, ByVal byteRenbanKetasu As Byte, _
+                                ByVal byteMaiPerSheet As Byte, ByVal byteSheetPerRack As Byte, ByVal byteBarcordeReadNum As Byte, Optional ByVal boolUpdateMode As Boolean = False) As Boolean
     '新機種登録動作
     Dim dbSQLite3 As clsSQLiteHandle
     Set dbSQLite3 = New clsSQLiteHandle
@@ -184,13 +196,28 @@ Public Function registNewKishu_to_KishuTable(ByVal strKishuheader As String, ByV
         MsgBox "機種テーブルが無かったので追加します"
         InitialDBCreate
     End If
+    '追加フィールドチェック
+    Call CheckNewField
     'SQL組み立て
-    strSQLlocal = "INSERT INTO " & Table_Kishu & _
-                    " (" & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & _
-                    "," & Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & _
-                    ") VALUES (""" & strKishuheader & """,""" & strKishuname & """,""" & strKishuNickname & """," & _
-                    byteTotalKetasu & "," & byteRenbanKetasu & ")"
-    dbSQLite3.SQL = strSQLlocal
+    If boolUpdateMode Then
+        strSQLlocal = "REPLACE INTO " & Table_Kishu & _
+                        " (" & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & _
+                        "," & Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & "," & _
+                        Kishu_Mai_Per_Sheet & "," & Kishu_Sheet_Per_Rack & "," & Kishu_Barcord_Read_Number & _
+                        ") VALUES (""" & strKishuheader & """,""" & strKishuname & """,""" & strKishuNickname & """," & _
+                        byteTotalKetasu & "," & byteRenbanKetasu & "," & _
+                        byteMaiPerSheet & "," & byteSheetPerRack & "," & byteBarcordeReadNum & ")"
+        dbSQLite3.SQL = strSQLlocal
+    Else
+        strSQLlocal = "INSERT INTO " & Table_Kishu & _
+                        " (" & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & _
+                        "," & Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & "," & _
+                        Kishu_Mai_Per_Sheet & "," & Kishu_Sheet_Per_Rack & "," & Kishu_Barcord_Read_Number & _
+                        ") VALUES (""" & strKishuheader & """,""" & strKishuname & """,""" & strKishuNickname & """," & _
+                        byteTotalKetasu & "," & byteRenbanKetasu & "," & _
+                        byteMaiPerSheet & "," & byteSheetPerRack & "," & byteBarcordeReadNum & ")"
+        dbSQLite3.SQL = strSQLlocal
+    End If
     isCollect = dbSQLite3.DoSQL_No_Transaction()
     Set dbSQLite3 = Nothing
     If Not isCollect Then
@@ -209,11 +236,12 @@ Public Function registNewKishu_to_KishuTable(ByVal strKishuheader As String, ByV
     MsgBox "機種追加完了"
     registNewKishu_to_KishuTable = True
 End Function
-Public Sub ChCurrentToDBDirectory()
+Public Function ChCurrentToDBDirectory() As Boolean
     'カレントディレクトリをDBディレクトリに移動する
     'カレントディレクトリの取得（UNCパス対応）
     Dim strCurrentDir As String
     Dim fso As New scripting.FileSystemObject
+    On Error GoTo ErrorCatch
 '    'カレントディレクトリをブックのディレクトリに変更
 '    ChCurrentDirW (ThisWorkbook.Path)
 '    strCurrentDir = CurDir
@@ -226,7 +254,13 @@ Public Sub ChCurrentToDBDirectory()
     'データベースディレクトリに移動
     strCurrentDir = constDatabasePath
     ChCurrentDirW (strCurrentDir)
-End Sub
+    ChCurrentToDBDirectory = True
+    Exit Function
+ErrorCatch:
+    Debug.Print "ChCurrenttoDB code: " & Err.Number & " Description: " & Err.Description
+    ChCurrentToDBDirectory = False
+    Exit Function
+End Function
 Public Function GetNameRange(ByVal strSerchName As String, Optional ByRef shTarget As Worksheet)
     '名前定義に指定されたものが存在するか調べて、存在したら名前定義そのものを返す
     Dim rngNameLocal As Name
@@ -345,8 +379,8 @@ Public Sub CheckNewField()
     Dim arrStr_Index_AppendField() As String
     On Error GoTo ErrorCatch
     '追加フィールド定義
-    arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number, ",")
-    arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number & "," & Kishu_Sheet_Per_Rack, ",")
+    arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
     arrStr_Job_AppendField = Split(Job_KanbanChr & "," & Job_ProductDate & "," & Field_LocalInput & "," & Field_RemoteInput & "," & Job_KanbanNumber, ",")
     arrStr_Job_Type = Split("TEXT" & "," & "TEXT" & "," & "NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
     arrStr_BarCorde_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
@@ -535,11 +569,16 @@ Serch_From_GlobalKishuList:
             '機種ヘッダが一致したので、KishuInfoを返して終了
             '機種登録OKフラグを立てる
             boolRegistOK = True
-            Kishu.KishuHeader = arrKishuInfoGlobal(longKishuCounter).KishuHeader
-            Kishu.KishuName = arrKishuInfoGlobal(longKishuCounter).KishuName
-            Kishu.KishuNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName
-            Kishu.TotalRirekiketa = arrKishuInfoGlobal(longKishuCounter).TotalRirekiketa
-            Kishu.RenbanKetasuu = arrKishuInfoGlobal(longKishuCounter).RenbanKetasuu
+            'KishuNameを元にKishuInfoを取ってくる
+            Kishu = GetKishuinfoByKishuName(arrKishuInfoGlobal(longKishuCounter).KishuName)
+'            Kishu.KishuHeader = arrKishuInfoGlobal(longKishuCounter).KishuHeader
+'            Kishu.KishuName = arrKishuInfoGlobal(longKishuCounter).KishuName
+'            Kishu.KishuNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName
+'            Kishu.TotalRirekiketa = arrKishuInfoGlobal(longKishuCounter).TotalRirekiketa
+'            Kishu.RenbanKetasuu = arrKishuInfoGlobal(longKishuCounter).RenbanKetasuu
+'            Kishu.MaiPerSheet = arrKishuInfoGlobal(longKishuCounter).MaiPerSheet
+'            Kishu.SheetPerRack = arrKishuInfoGlobal(longKishuCounter).SheetPerRack
+'            Kishu.BarcordReadNumber = arrKishuInfoGlobal(longKishuCounter).BarcordReadNumber
             getKishuInfoByRireki = Kishu
             GoTo CloseAndExit
         End If
@@ -571,10 +610,15 @@ Public Function GetAllKishuInfo_Array() As typKishuInfo()
     Dim isCollect As Boolean
     Dim dbKishuAll As clsSQLiteHandle
     Set dbKishuAll = New clsSQLiteHandle
-    Dim intCounterKishu As Integer
-    Dim varKishuTable As Variant
+    Dim intRegistCount As Integer       '機種テーブルでNullな値が無かった物のみ登録するので、そいつの数を数える
+'    Dim varKishuTable As Variant
+    Dim dicKishuTable As Dictionary
+    Dim varKey As Variant
     Dim strSQLlocal As String
     On Error GoTo ErrorCatch
+    Set dicKishuTable = New Dictionary
+    '最初に既存のぐろばんるを削除しておく
+    Erase arrKishuInfoGlobal
     '機種テーブルの有無を確認する
     If Not IsTableExist(Table_Kishu) Then
         MsgBox "機種テーブル（初期テーブル）が見つからなかったので新規作成します。"
@@ -587,9 +631,11 @@ Public Function GetAllKishuInfo_Array() As typKishuInfo()
         End If
     End If
     'SQL作成
-    strSQLlocal = "SELECT " & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & "," & _
-                    Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & _
+'    strSQLlocal = "SELECT " & Kishu_Header & "," & Kishu_KishuName & "," & Kishu_KishuNickname & "," & _
+                    Kishu_TotalKeta & "," & Kishu_RenbanKetasuu & "," & _
+                    Kishu_Mai_Per_Sheet & "," & Kishu_Sheet_Per_Rack & "," & Kishu_Barcord_Read_Number & _
                     " FROM " & Table_Kishu
+    strSQLlocal = "SELECT * FROM " & Table_Kishu
     '機種テーブルの内容を配列で受け取る
     dbKishuAll.SQL = strSQLlocal
     isCollect = dbKishuAll.DoSQL_No_Transaction()
@@ -603,26 +649,54 @@ Public Function GetAllKishuInfo_Array() As typKishuInfo()
         Exit Function
     End If
     '結果を配列で受け取る
-    ReDim varKishuTable(dbKishuAll.RecordCount - 1)
+'    ReDim varKishuTable(dbKishuAll.RecordCount - 1)
+    'とりあえず機種数分でKishuInfoアレイを初期化
     ReDim arrKishuInfo(dbKishuAll.RecordCount - 1)
-    ReDim arrKishuInfoGlobal(UBound(arrKishuInfo))
-    varKishuTable = dbKishuAll.RS_Array(boolPlusTytle:=False)
+'    varKishuTable = dbKishuAll.RS_Array(boolPlusTytle:=False)
+    Set dicKishuTable = dbKishuAll.RS_Array_Dictionary
     Set dbKishuAll = Nothing
     'KishuInfo型に突っ込んでやる
-    For intCounterKishu = LBound(varKishuTable, 1) To UBound(varKishuTable, 1)
-        arrKishuInfo(intCounterKishu).KishuHeader = varKishuTable(intCounterKishu, 0)
-        arrKishuInfo(intCounterKishu).KishuName = varKishuTable(intCounterKishu, 1)
-        arrKishuInfo(intCounterKishu).KishuNickName = varKishuTable(intCounterKishu, 2)
-        arrKishuInfo(intCounterKishu).TotalRirekiketa = varKishuTable(intCounterKishu, 3)
-        arrKishuInfo(intCounterKishu).RenbanKetasuu = varKishuTable(intCounterKishu, 4)
-    Next intCounterKishu
-    arrKishuInfoGlobal = arrKishuInfo
-    GetAllKishuInfo_Array = arrKishuInfo
+    '登録数カウンター初期化
+    intRegistCount = 0
+    'テーブル数分ループ
+    For Each varKey In dicKishuTable
+'    For intCounterKishu = LBound(varKishuTable, 1) To UBound(varKishuTable, 1)
+        On Error Resume Next
+        arrKishuInfo(intRegistCount).KishuHeader = dicKishuTable(varKey)(Kishu_Header)
+        arrKishuInfo(intRegistCount).KishuName = dicKishuTable(varKey)(Kishu_KishuName)
+        arrKishuInfo(intRegistCount).KishuNickName = dicKishuTable(varKey)(Kishu_KishuNickname)
+        arrKishuInfo(intRegistCount).TotalRirekiketa = dicKishuTable(varKey)(Kishu_TotalKeta)
+        arrKishuInfo(intRegistCount).RenbanKetasuu = dicKishuTable(varKey)(Kishu_RenbanKetasuu)
+        arrKishuInfo(intRegistCount).MaiPerSheet = dicKishuTable(varKey)(Kishu_Mai_Per_Sheet)
+        arrKishuInfo(intRegistCount).SheetPerRack = dicKishuTable(varKey)(Kishu_Sheet_Per_Rack)
+        arrKishuInfo(intRegistCount).BarcordReadNumber = dicKishuTable(varKey)(Kishu_Barcord_Read_Number)
+        If Err.Number <> 0 Then
+            '機種情報登録中にエラーが出た場合は、その周回のデータは登録しない（登録カウンターインクリメント無）
+            '登録カウンターインクリメントしないので、次のデータに上書きされるはず
+            Debug.Print "GetAllKishuInfoArray in For code: " & Err.Number & " Description: " & Err.Description
+        Else
+            'エラーなしの場合は、登録カウンターインクリメント
+            intRegistCount = intRegistCount + 1
+        End If
+'    Next intCounterKishu
+    Next
+    On Error GoTo ErrorCatch
+    If intRegistCount = 0 Then
+        'ループを抜けても登録カウントに変化がなかったということは、マトモな機種が無かった
+        '何も登録させないよ
+        Erase arrKishuInfoGlobal
+        GoTo CloseAndExit
+    Else
+        'arrKishuInfoをデータが入ってる要素数までダウンサイズ
+        ReDim Preserve arrKishuInfo(intRegistCount - 1)
+        ReDim arrKishuInfoGlobal(UBound(arrKishuInfo))
+        arrKishuInfoGlobal = arrKishuInfo
+        GetAllKishuInfo_Array = arrKishuInfo
+    End If
     GoTo CloseAndExit
     Exit Function
 CloseAndExit:
     Set dbKishuAll = Nothing
-    GetAllKishuInfo_Array = arrKishuInfo
     Exit Function
 ErrorCatch:
     Debug.Print "GetAllKishu_Array code: " & Err.Number & "Description: " & Err.Description
@@ -706,12 +780,55 @@ ErrorCatch:
     Debug.Print "SimpleRecorde code: " & Err.Number & "Description: " & Err.Description
     Exit Function
 End Function
-Public Function GetKishuinfoByZuban(strargZuban As String) As typKishuInfo
+Public Function GetKishuinfoByNickName(strargNickName As String) As typKishuInfo
+    '機種通称名をもとにKishuInfoを引っ張ってくる
+    Dim Kishu As typKishuInfo
+    Dim longKishuCounter As Long
+    On Error GoTo ErrorCatch
+    If strargNickName = "" Then
+        Debug.Print "GetKishuInfoByNickName No arg"
+        GoTo CloseAndExit
+    End If
+    'ぐろばんるのが初期化されているかチェック
+    If (Not arrKishuInfoGlobal) = -1 Then
+        'ここに来ると未初期化らしい・・・
+        Call GetAllKishuInfo_Array
+    End If
+'    If boolNoTableKishuRecord = True Then
+'        '機種テーブルが空の場合は終了する
+'        GoTo CloseAndExit
+'    End If
+    '機種テーブルarryaを全部調べる
+    For longKishuCounter = LBound(arrKishuInfoGlobal, 1) To UBound(arrKishuInfoGlobal, 1)
+        If strargNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName Then
+            '通称名が一致したら、グローバルKishuInfoからKishuNameを引っ張り、KishuINfoを受け取る
+            Kishu = GetKishuinfoByKishuName(arrKishuInfoGlobal(longKishuCounter).KishuName)
+'            Kishu.KishuHeader = arrKishuInfoGlobal(longKishuCounter).KishuHeader
+'            Kishu.KishuName = arrKishuInfoGlobal(longKishuCounter).KishuName
+'            Kishu.KishuNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName
+'            Kishu.TotalRirekiketa = arrKishuInfoGlobal(longKishuCounter).TotalRirekiketa
+'            Kishu.RenbanKetasuu = arrKishuInfoGlobal(longKishuCounter).RenbanKetasuu
+'            Kishu.MaiPerSheet = arrKishuInfoGlobal(longKishuCounter).MaiPerSheet
+'            Kishu.SheetPerRack = arrKishuInfoGlobal(longKishuCounter).SheetPerRack
+'            Kishu.BarcordReadNumber = arrKishuInfoGlobal(longKishuCounter).BarcordReadNumber
+            GoTo CloseAndExit
+        End If
+    Next longKishuCounter
+    '機種が見つからなかったので、そのまま終了
+    GoTo CloseAndExit
+CloseAndExit:
+    GetKishuinfoByNickName = Kishu
+    Exit Function
+ErrorCatch:
+'    MsgBox "機種情報取得中にエラーが発生したようです"
+    Debug.Print "getKishuInfoByRireki code: " & Err.Number & " Description: " & Err.Description
+End Function
+Public Function GetKishuinfoByKishuName(strargKishuName As String) As typKishuInfo
     '図番をもとにKishuInfoを引っ張ってくる
     Dim Kishu As typKishuInfo
     Dim longKishuCounter As Long
     On Error GoTo ErrorCatch
-    If strargZuban = "" Then
+    If strargKishuName = "" Then
         Debug.Print "GetKishuInfoByZXuban No arg"
         GoTo CloseAndExit
     End If
@@ -726,20 +843,23 @@ Public Function GetKishuinfoByZuban(strargZuban As String) As typKishuInfo
     End If
     '機種テーブルarryaを全部調べる
     For longKishuCounter = LBound(arrKishuInfoGlobal, 1) To UBound(arrKishuInfoGlobal, 1)
-        If strargZuban = arrKishuInfoGlobal(longKishuCounter).KishuName Then
+        If strargKishuName = arrKishuInfoGlobal(longKishuCounter).KishuName Then
             '図番とKishuNameが一致したらKishuInfoを返してやる
             Kishu.KishuHeader = arrKishuInfoGlobal(longKishuCounter).KishuHeader
             Kishu.KishuName = arrKishuInfoGlobal(longKishuCounter).KishuName
             Kishu.KishuNickName = arrKishuInfoGlobal(longKishuCounter).KishuNickName
             Kishu.TotalRirekiketa = arrKishuInfoGlobal(longKishuCounter).TotalRirekiketa
             Kishu.RenbanKetasuu = arrKishuInfoGlobal(longKishuCounter).RenbanKetasuu
+            Kishu.MaiPerSheet = arrKishuInfoGlobal(longKishuCounter).MaiPerSheet
+            Kishu.SheetPerRack = arrKishuInfoGlobal(longKishuCounter).SheetPerRack
+            Kishu.BarcordReadNumber = arrKishuInfoGlobal(longKishuCounter).BarcordReadNumber
             GoTo CloseAndExit
         End If
     Next longKishuCounter
     '機種が見つからなかったので、そのまま終了
     GoTo CloseAndExit
 CloseAndExit:
-    GetKishuinfoByZuban = Kishu
+    GetKishuinfoByKishuName = Kishu
     Exit Function
 ErrorCatch:
 '    MsgBox "機種情報取得中にエラーが発生したようです"
@@ -869,5 +989,66 @@ Public Sub OutputArrayToCSV(ByRef vararg2DimentionsDataArray As Variant, ByVal s
     Exit Sub
 ErrorCatch:
     Debug.Print "OutputArrayToCSV code: " & Err.Number & " Description: " & Err.Description
+    Exit Sub
+End Sub
+Public Sub CheckKishuTable_Field()
+    '設定項目が増えたので（しかもNotNullっぽい）、未入力箇所をチェックするめそどー
+    Dim dbCheckKishuTable As clsSQLiteHandle
+    Dim dicArrKishu As Dictionary
+    Dim intCounterTable As Integer
+    Dim intCounterKishu As Integer
+    Dim varKey As Variant
+    Dim KishuInfoLocal As typKishuInfo
+    Set dbCheckKishuTable = New clsSQLiteHandle
+    'T_Kishuにあって、KishuInfoぐろばんるに無いのが怪しい機種
+    'まずは機種テーブルから一覧を取ってくる
+    dbCheckKishuTable.SQL = "SELECT * FROM " & Table_Kishu
+    Call dbCheckKishuTable.DoSQL_No_Transaction
+    Set dicArrKishu = dbCheckKishuTable.RS_Array_Dictionary
+    Set dbCheckKishuTable = Nothing
+    '次にKishuInfoぐろばんるを再取得
+    Call GetAllKishuInfo_Array
+    For Each varKey In dicArrKishu
+        KishuInfoLocal = GetKishuinfoByKishuName(CStr(dicArrKishu(varKey)(Kishu_KishuName)))
+        If KishuInfoLocal.KishuName = "" Then
+            '怪しい機種なので登録
+            Load frmRegistNewKishu
+            If Not IsNull(dicArrKishu(varKey)(Kishu_Header)) Then
+                '先に履歴ヘッダ桁数を指定してやらないとChangeイベントで履歴ヘッダのラベルが消されちゃう（履歴自体は空だから）
+                frmRegistNewKishu.txtboxKishuHeader.Text = Len(dicArrKishu(varKey)(Kishu_Header))
+                frmRegistNewKishu.labelKishuHeader.Caption = dicArrKishu(varKey)(Kishu_Header)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_KishuName)) Then
+                frmRegistNewKishu.txtboxKishuName.Text = dicArrKishu(varKey)(Kishu_KishuName)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_KishuNickname)) Then
+                frmRegistNewKishu.txtBoxKishuNickName.Text = dicArrKishu(varKey)(Kishu_KishuNickname)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_TotalKeta)) Then
+                frmRegistNewKishu.txtboxTotalRirekiKetasuu.Text = dicArrKishu(varKey)(Kishu_TotalKeta)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_RenbanKetasuu)) Then
+                '履歴ヘッダと同じような理由で、連番桁数から先に設定してやる
+                '登録チェックに使ってるので、連番部分を適当に入力してやる
+                frmRegistNewKishu.txtboxRenbanketasuu.Text = dicArrKishu(varKey)(Kishu_RenbanKetasuu)
+                frmRegistNewKishu.labelRenban.Caption = String(dicArrKishu(varKey)(Kishu_RenbanKetasuu), "0")
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_Mai_Per_Sheet)) Then
+                frmRegistNewKishu.txtBoxMaiPerSheet.Text = dicArrKishu(varKey)(Kishu_Mai_Per_Sheet)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_Sheet_Per_Rack)) Then
+                frmRegistNewKishu.txtBoxSheetPerRack.Text = dicArrKishu(varKey)(Kishu_Sheet_Per_Rack)
+            End If
+            If Not IsNull(dicArrKishu(varKey)(Kishu_Barcord_Read_Number)) Then
+                frmRegistNewKishu.txtBoxBarcodeReadNumber.Text = dicArrKishu(varKey)(Kishu_Barcord_Read_Number)
+            End If
+            'Update Modeで機種登録フォームを表示
+            frmRegistNewKishu.chkBoxUpdateMode.Value = True
+            frmRegistNewKishu.Show
+        End If
+    Next
+    Exit Sub
+ErrorCatch:
+    Set dbCheckKishuTable = Nothing
     Exit Sub
 End Sub
