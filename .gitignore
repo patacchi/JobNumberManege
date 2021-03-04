@@ -6,6 +6,9 @@ SMTL4.csr
 ChangeLog.txt
 JOB_data.xlsm
 PrivateKey.key
+src/
+vbac.wsf.js
+ws2jse.wsf
 Sqlite3Demo.bas
 sqlite_master_all_result.csv
 #/bin/dbtest.xlsm
