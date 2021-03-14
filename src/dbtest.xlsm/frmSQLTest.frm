@@ -68,8 +68,14 @@ Private Sub btnSQLGo_Click()
     Dim varRetValue As Variant
     Dim isCollect As Boolean
     Dim strWidths As String
+    Dim isDBFile As Boolean
     Set dbSQLite3 = New clsSQLiteHandle
-    IsDBFileExist
+    isDBFile = IsDBFileExist
+    If Not isDBFile Then
+        'DBファイル作成・確認時に何かあったんだね・・
+        Debug.Print "DBファイル作成・確認時に何かあった"
+        Exit Sub
+    End If
     isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
     If isCollect Then
         If chkboxNoTitle.Value = True Then

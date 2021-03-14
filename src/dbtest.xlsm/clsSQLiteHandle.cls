@@ -197,6 +197,11 @@ Public Function DoSQL_No_Transaction(Optional ByVal strSQLarg As String, Optiona
         'DBイニシャライズ
         isCollect = DBInishialize()
     End If
+    If Not isCollect Then
+        '初期化失敗してるので終了
+        DoSQL_No_Transaction = False
+        Exit Function
+    End If
     'DB接続の有無を確認し、接続してなかったらここで接続する
     If Not isDBOpen Then
         'DBファイル名
@@ -460,6 +465,11 @@ Private Function DBInishialize(Optional ByRef strLibDir As String) As Boolean
     #Else
         InitReturn = SQLite3Initialize ' Default path is ThisWorkbook.Path but can specify other path where the .dlls reside.
     #End If
+    If InitReturn = SQLITE_INIT_ERROR Then
+        MsgBox "システムファイルの初期化に失敗しました。ネットワーク接続が原因の場合もあります。処理を中断します。"
+        DBInishialize = False
+        Exit Function
+    End If
     If InitReturn <> SQLITE_INIT_OK Then
         Debug.Print "Error Initializing SQLite. Error: " & Err.LastDllError
         DBInishialize = False

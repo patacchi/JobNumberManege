@@ -3,7 +3,7 @@ Option Explicit
 'Option Base 1
 'office 2013導入により、mdbからaccdb形式に移行
 'DBをSQLite3に移行  2021_01_10 Pataccchi
-Public Const constDatabasePath              As String = "\\PC24929-TDMS\JobNumberManege\bin\Database_sqlite3"      'データベースディレクトリ
+Public Const constDatabasePath              As String = "\\toshiba.local\adsf\tdms_js_js\（実装）SMTグループ\SMT計画#2\中量産(LINE4)\JobNumberManege\bin\Database_sqlite3"      'データベースディレクトリ
 Public Const constJobNumberDBname           As String = "JobNumberDB.sqlite3"   'ジョブ番号情報DBのファイル名
 Public Const Field_Initialdate              As String = "InitialInputDate"      '各テーブル共通、初回入力時刻
 Public Const Field_Update                   As String = "UpdateDate"            '各テーブル共通、最終更新時刻
