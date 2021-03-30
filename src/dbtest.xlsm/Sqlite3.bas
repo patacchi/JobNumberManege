@@ -87,6 +87,33 @@ Private Const SQLITE_STATIC      As Long = 0
 Private Const SQLITE_TRANSIENT   As Long = -1
 ' System calls
 Private Const CP_UTF8 As Long = 65001
+'With句のテーブル名定数定義
+Public Const With_Remote            As String = "Remote_Limit"  'With句で、件数制限したリモートテーブルの名前
+Public Const With_Local             As String = "Local_Limit"   'With句で、件数制限したローカルテーブルの名前
+'バインドパラメータデータタイプ
+Public Const Bind_Type                      As String = "Type"  'NamedListの第二引数のタイプ名のキー名
+Public Const Bind_Data                      As String = "Data"  'NamedListの第二引数の実際の中身のキー名
+Public Const SQLITE_BIND_TYPE_INT32 As Long = 0
+Public Const SQLITE_BIND_TYPE_DOUBLE As Long = 1
+Public Const SQLITE_BIND_TYPE_TEXT As Long = 2
+Public Const SQLITE_BIND_TYPE_BLOB As Long = 3
+Public Const SQLITE_BIND_TYPE_NULL As Long = 4
+Public Const SQLITE_BIND_TYPE_VALUE As Long = 5
+Public Enum BindType
+    Int32 = SQLITE_BIND_TYPE_INT32
+    Dbl = SQLITE_BIND_TYPE_DOUBLE
+    Text = SQLITE_BIND_TYPE_TEXT
+    Blob = SQLITE_BIND_TYPE_BLOB
+    Nul = SQLITE_BIND_TYPE_NULL
+    Value = SQLITE_BIND_TYPE_VALUE
+End Enum
+'近似Job番号（履歴）検索の検索方向決定用Enum
+Public Const FIND_FLOOR_TO_CEIL As Long = 0
+Public Const FIND_CEIL_TO_FLOOR As Long = 1
+Public Enum RirekiFindDir
+    Floor_to_Ceil = FIND_FLOOR_TO_CEIL
+    Ceil_to_Floor = FIND_CEIL_TO_FLOOR
+End Enum
 #If Win64 Then
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
 Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
@@ -285,166 +312,166 @@ End Function
 '=====================================================================================
 ' Database connections
 #If Win64 Then
-Public Function SQLite3Open(ByVal fileName As String, ByRef dbHandle As LongPtr) As Long
+Public Function SQLite3Open(ByVal fileName As String, ByRef DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Open(ByVal fileName As String, ByRef dbHandle As Long) As Long
+Public Function SQLite3Open(ByVal fileName As String, ByRef DbHandle As Long) As Long
 #End If
-    SQLite3Open = sqlite3_open16(StrPtr(fileName), dbHandle)
+    SQLite3Open = sqlite3_open16(StrPtr(fileName), DbHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3OpenV2(ByVal fileName As String, ByRef dbHandle As LongPtr, ByVal flags As Long, ByVal vfsName As String) As Long
+Public Function SQLite3OpenV2(ByVal fileName As String, ByRef DbHandle As LongPtr, ByVal flags As Long, ByVal vfsName As String) As Long
 #Else
-Public Function SQLite3OpenV2(ByVal fileName As String, ByRef dbHandle As Long, ByVal flags As Long, ByVal vfsName As String) As Long
+Public Function SQLite3OpenV2(ByVal fileName As String, ByRef DbHandle As Long, ByVal flags As Long, ByVal vfsName As String) As Long
 #End If
     Dim bufFileName() As Byte
     Dim bufVfsName() As Byte
     bufFileName = StringToUtf8Bytes(fileName)
     If vfsName = Empty Then
-        SQLite3OpenV2 = sqlite3_open_v2(VarPtr(bufFileName(0)), dbHandle, flags, 0)
+        SQLite3OpenV2 = sqlite3_open_v2(VarPtr(bufFileName(0)), DbHandle, flags, 0)
     Else
         bufVfsName = StringToUtf8Bytes(vfsName)
-        SQLite3OpenV2 = sqlite3_open_v2(VarPtr(bufFileName(0)), dbHandle, flags, VarPtr(bufVfsName(0)))
+        SQLite3OpenV2 = sqlite3_open_v2(VarPtr(bufFileName(0)), DbHandle, flags, VarPtr(bufVfsName(0)))
     End If
 End Function
 #If Win64 Then
-Public Function SQLite3Close(ByVal dbHandle As LongPtr) As Long
+Public Function SQLite3Close(ByVal DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Close(ByVal dbHandle As Long) As Long
+Public Function SQLite3Close(ByVal DbHandle As Long) As Long
 #End If
-    SQLite3Close = sqlite3_close(dbHandle)
+    SQLite3Close = sqlite3_close(DbHandle)
 End Function
 '=====================================================================================
 ' Error information
 #If Win64 Then
-Public Function SQLite3ErrMsg(ByVal dbHandle As LongPtr) As String
+Public Function SQLite3ErrMsg(ByVal DbHandle As LongPtr) As String
 #Else
-Public Function SQLite3ErrMsg(ByVal dbHandle As Long) As String
+Public Function SQLite3ErrMsg(ByVal DbHandle As Long) As String
 #End If
-    SQLite3ErrMsg = Utf8PtrToString(sqlite3_errmsg(dbHandle))
+    SQLite3ErrMsg = Utf8PtrToString(sqlite3_errmsg(DbHandle))
 End Function
 #If Win64 Then
-Public Function SQLite3ErrCode(ByVal dbHandle As LongPtr) As Long
+Public Function SQLite3ErrCode(ByVal DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3ErrCode(ByVal dbHandle As Long) As Long
+Public Function SQLite3ErrCode(ByVal DbHandle As Long) As Long
 #End If
-    SQLite3ErrCode = sqlite3_errcode(dbHandle)
+    SQLite3ErrCode = sqlite3_errcode(DbHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3ExtendedErrCode(ByVal dbHandle As LongPtr) As Long
+Public Function SQLite3ExtendedErrCode(ByVal DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3ExtendedErrCode(ByVal dbHandle As Long) As Long
+Public Function SQLite3ExtendedErrCode(ByVal DbHandle As Long) As Long
 #End If
-    SQLite3ExtendedErrCode = sqlite3_extended_errcode(dbHandle)
+    SQLite3ExtendedErrCode = sqlite3_extended_errcode(DbHandle)
 End Function
 '=====================================================================================
 ' Change Counts
 #If Win64 Then
-Public Function SQLite3Changes(ByVal dbHandle As LongPtr) As Long
+Public Function SQLite3Changes(ByVal DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Changes(ByVal dbHandle As Long) As Long
+Public Function SQLite3Changes(ByVal DbHandle As Long) As Long
 #End If
-    SQLite3Changes = sqlite3_changes(dbHandle)
+    SQLite3Changes = sqlite3_changes(DbHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3TotalChanges(ByVal dbHandle As LongPtr) As Long
+Public Function SQLite3TotalChanges(ByVal DbHandle As LongPtr) As Long
 #Else
-Public Function SQLite3TotalChanges(ByVal dbHandle As Long) As Long
+Public Function SQLite3TotalChanges(ByVal DbHandle As Long) As Long
 #End If
-    SQLite3TotalChanges = sqlite3_total_changes(dbHandle)
+    SQLite3TotalChanges = sqlite3_total_changes(DbHandle)
 End Function
 '=====================================================================================
 ' Statements
 #If Win64 Then
-Public Function SQLite3PrepareV2(ByVal dbHandle As LongPtr, ByVal SQL As String, ByRef stmtHandle As LongPtr) As Long
+Public Function SQLite3PrepareV2(ByVal DbHandle As LongPtr, ByVal SQL As String, ByRef StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3PrepareV2(ByVal dbHandle As Long, ByVal SQL As String, ByRef stmtHandle As Long) As Long
+Public Function SQLite3PrepareV2(ByVal DbHandle As Long, ByVal SQL As String, ByRef StmtHandle As Long) As Long
 #End If
     ' Only the first statement (up to ';') is prepared. Currently we don't retrieve the 'tail' pointer.
-    SQLite3PrepareV2 = sqlite3_prepare16_v2(dbHandle, StrPtr(SQL), Len(SQL) * 2, stmtHandle, 0)
+    SQLite3PrepareV2 = sqlite3_prepare16_v2(DbHandle, StrPtr(SQL), Len(SQL) * 2, StmtHandle, 0)
 End Function
 #If Win64 Then
-Public Function SQLite3Step(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3Step(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Step(ByVal stmtHandle As Long) As Long
+Public Function SQLite3Step(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3Step = sqlite3_step(stmtHandle)
+    SQLite3Step = sqlite3_step(StmtHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3Reset(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3Reset(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Reset(ByVal stmtHandle As Long) As Long
+Public Function SQLite3Reset(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3Reset = sqlite3_reset(stmtHandle)
+    SQLite3Reset = sqlite3_reset(StmtHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3Finalize(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3Finalize(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3Finalize(ByVal stmtHandle As Long) As Long
+Public Function SQLite3Finalize(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3Finalize = sqlite3_finalize(stmtHandle)
+    SQLite3Finalize = sqlite3_finalize(StmtHandle)
 End Function
 '=====================================================================================
 ' Statement column access (0-based indices)
 #If Win64 Then
-Public Function SQLite3ColumnCount(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3ColumnCount(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3ColumnCount(ByVal stmtHandle As Long) As Long
+Public Function SQLite3ColumnCount(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3ColumnCount = sqlite3_column_count(stmtHandle)
+    SQLite3ColumnCount = sqlite3_column_count(StmtHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnType(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Long
+Public Function SQLite3ColumnType(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Long
 #Else
-Public Function SQLite3ColumnType(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Long
+Public Function SQLite3ColumnType(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Long
 #End If
-    SQLite3ColumnType = sqlite3_column_type(stmtHandle, ZeroBasedColIndex)
+    SQLite3ColumnType = sqlite3_column_type(StmtHandle, ZeroBasedColIndex)
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnName(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As String
+Public Function SQLite3ColumnName(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As String
 #Else
-Public Function SQLite3ColumnName(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As String
+Public Function SQLite3ColumnName(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As String
 #End If
-    SQLite3ColumnName = Utf8PtrToString(sqlite3_column_name(stmtHandle, ZeroBasedColIndex))
+    SQLite3ColumnName = Utf8PtrToString(sqlite3_column_name(StmtHandle, ZeroBasedColIndex))
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnDouble(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Double
+Public Function SQLite3ColumnDouble(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Double
 #Else
-Public Function SQLite3ColumnDouble(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Double
+Public Function SQLite3ColumnDouble(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Double
 #End If
-    SQLite3ColumnDouble = sqlite3_column_double(stmtHandle, ZeroBasedColIndex)
+    SQLite3ColumnDouble = sqlite3_column_double(StmtHandle, ZeroBasedColIndex)
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnInt32(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Long
+Public Function SQLite3ColumnInt32(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Long
 #Else
-Public Function SQLite3ColumnInt32(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Long
+Public Function SQLite3ColumnInt32(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Long
 #End If
-    SQLite3ColumnInt32 = sqlite3_column_int(stmtHandle, ZeroBasedColIndex)
+    SQLite3ColumnInt32 = sqlite3_column_int(StmtHandle, ZeroBasedColIndex)
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnText(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As String
+Public Function SQLite3ColumnText(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As String
 #Else
-Public Function SQLite3ColumnText(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As String
+Public Function SQLite3ColumnText(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As String
 #End If
-    SQLite3ColumnText = Utf8PtrToString(sqlite3_column_text(stmtHandle, ZeroBasedColIndex))
+    SQLite3ColumnText = Utf8PtrToString(sqlite3_column_text(StmtHandle, ZeroBasedColIndex))
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnDate(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Date
+Public Function SQLite3ColumnDate(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Date
 #Else
-Public Function SQLite3ColumnDate(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Date
+Public Function SQLite3ColumnDate(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Date
 #End If
-    SQLite3ColumnDate = FromJulianDay(sqlite3_column_double(stmtHandle, ZeroBasedColIndex))
+    SQLite3ColumnDate = FromJulianDay(sqlite3_column_double(StmtHandle, ZeroBasedColIndex))
 End Function
 #If Win64 Then
-Public Function SQLite3ColumnBlob(ByVal stmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Byte()
+Public Function SQLite3ColumnBlob(ByVal StmtHandle As LongPtr, ByVal ZeroBasedColIndex As Long) As Byte()
     Dim ptr As LongPtr
 #Else
-Public Function SQLite3ColumnBlob(ByVal stmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Byte()
+Public Function SQLite3ColumnBlob(ByVal StmtHandle As Long, ByVal ZeroBasedColIndex As Long) As Byte()
     Dim ptr As Long
 #End If
     Dim length As Long
     Dim buf() As Byte
-    ptr = sqlite3_column_blob(stmtHandle, ZeroBasedColIndex)
-    length = sqlite3_column_bytes(stmtHandle, ZeroBasedColIndex)
+    ptr = sqlite3_column_blob(StmtHandle, ZeroBasedColIndex)
+    length = sqlite3_column_bytes(StmtHandle, ZeroBasedColIndex)
     ReDim buf(length - 1)
     RtlMoveMemory VarPtr(buf(0)), ptr, length
     SQLite3ColumnBlob = buf
@@ -452,78 +479,85 @@ End Function
 '=====================================================================================
 ' Statement bindings
 #If Win64 Then
-Public Function SQLite3BindText(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
+Public Function SQLite3BindValue(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
 #Else
-Public Function SQLite3BindText(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
+Public Function SQLite3BindValue(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
 #End If
-    SQLite3BindText = sqlite3_bind_text16(stmtHandle, OneBasedParamIndex, StrPtr(Value), -1, SQLITE_TRANSIENT)
+    SQLite3BindValue = sqlite3_bind_value(StmtHandle, OneBasedParamIndex, StrPtr(Value))
 End Function
 #If Win64 Then
-Public Function SQLite3BindDouble(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Double) As Long
+Public Function SQLite3BindText(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
 #Else
-Public Function SQLite3BindDouble(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Double) As Long
+Public Function SQLite3BindText(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As String) As Long
 #End If
-    SQLite3BindDouble = sqlite3_bind_double(stmtHandle, OneBasedParamIndex, Value)
+    SQLite3BindText = sqlite3_bind_text16(StmtHandle, OneBasedParamIndex, StrPtr(Value), -1, SQLITE_TRANSIENT)
 End Function
 #If Win64 Then
-Public Function SQLite3BindInt32(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Long) As Long
+Public Function SQLite3BindDouble(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Double) As Long
 #Else
-Public Function SQLite3BindInt32(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Long) As Long
+Public Function SQLite3BindDouble(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Double) As Long
 #End If
-    SQLite3BindInt32 = sqlite3_bind_int(stmtHandle, OneBasedParamIndex, Value)
+    SQLite3BindDouble = sqlite3_bind_double(StmtHandle, OneBasedParamIndex, Value)
 End Function
 #If Win64 Then
-Public Function SQLite3BindDate(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Date) As Long
+Public Function SQLite3BindInt32(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Long) As Long
 #Else
-Public Function SQLite3BindDate(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Date) As Long
+Public Function SQLite3BindInt32(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Long) As Long
 #End If
-    SQLite3BindDate = sqlite3_bind_double(stmtHandle, OneBasedParamIndex, ToJulianDay(Value))
+    SQLite3BindInt32 = sqlite3_bind_int(StmtHandle, OneBasedParamIndex, Value)
 End Function
 #If Win64 Then
-Public Function SQLite3BindBlob(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByRef Value() As Byte) As Long
+Public Function SQLite3BindDate(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByVal Value As Date) As Long
 #Else
-Public Function SQLite3BindBlob(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long, ByRef Value() As Byte) As Long
+Public Function SQLite3BindDate(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByVal Value As Date) As Long
+#End If
+    SQLite3BindDate = sqlite3_bind_double(StmtHandle, OneBasedParamIndex, ToJulianDay(Value))
+End Function
+#If Win64 Then
+Public Function SQLite3BindBlob(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long, ByRef Value() As Byte) As Long
+#Else
+Public Function SQLite3BindBlob(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long, ByRef Value() As Byte) As Long
 #End If
     Dim length As Long
     length = UBound(Value) - LBound(Value) + 1
-    SQLite3BindBlob = sqlite3_bind_blob(stmtHandle, OneBasedParamIndex, VarPtr(Value(0)), length, SQLITE_TRANSIENT)
+    SQLite3BindBlob = sqlite3_bind_blob(StmtHandle, OneBasedParamIndex, VarPtr(Value(0)), length, SQLITE_TRANSIENT)
 End Function
 #If Win64 Then
-Public Function SQLite3BindNull(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long) As Long
+Public Function SQLite3BindNull(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long) As Long
 #Else
-Public Function SQLite3BindNull(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long) As Long
+Public Function SQLite3BindNull(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long) As Long
 #End If
-    SQLite3BindNull = sqlite3_bind_null(stmtHandle, OneBasedParamIndex)
+    SQLite3BindNull = sqlite3_bind_null(StmtHandle, OneBasedParamIndex)
 End Function
 #If Win64 Then
-Public Function SQLite3BindParameterCount(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3BindParameterCount(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3BindParameterCount(ByVal stmtHandle As Long) As Long
+Public Function SQLite3BindParameterCount(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3BindParameterCount = sqlite3_bind_parameter_count(stmtHandle)
+    SQLite3BindParameterCount = sqlite3_bind_parameter_count(StmtHandle)
 End Function
 #If Win64 Then
-Public Function SQLite3BindParameterName(ByVal stmtHandle As LongPtr, ByVal OneBasedParamIndex As Long) As String
+Public Function SQLite3BindParameterName(ByVal StmtHandle As LongPtr, ByVal OneBasedParamIndex As Long) As String
 #Else
-Public Function SQLite3BindParameterName(ByVal stmtHandle As Long, ByVal OneBasedParamIndex As Long) As String
+Public Function SQLite3BindParameterName(ByVal StmtHandle As Long, ByVal OneBasedParamIndex As Long) As String
 #End If
-    SQLite3BindParameterName = Utf8PtrToString(sqlite3_bind_parameter_name(stmtHandle, OneBasedParamIndex))
+    SQLite3BindParameterName = Utf8PtrToString(sqlite3_bind_parameter_name(StmtHandle, OneBasedParamIndex))
 End Function
 #If Win64 Then
-Public Function SQLite3BindParameterIndex(ByVal stmtHandle As LongPtr, ByVal paramName As String) As Long
+Public Function SQLite3BindParameterIndex(ByVal StmtHandle As LongPtr, ByVal paramName As String) As Long
 #Else
-Public Function SQLite3BindParameterIndex(ByVal stmtHandle As Long, ByVal paramName As String) As Long
+Public Function SQLite3BindParameterIndex(ByVal StmtHandle As Long, ByVal paramName As String) As Long
 #End If
     Dim buf() As Byte
     buf = StringToUtf8Bytes(paramName)
-    SQLite3BindParameterIndex = sqlite3_bind_parameter_index(stmtHandle, VarPtr(buf(0)))
+    SQLite3BindParameterIndex = sqlite3_bind_parameter_index(StmtHandle, VarPtr(buf(0)))
 End Function
 #If Win64 Then
-Public Function SQLite3ClearBindings(ByVal stmtHandle As LongPtr) As Long
+Public Function SQLite3ClearBindings(ByVal StmtHandle As LongPtr) As Long
 #Else
-Public Function SQLite3ClearBindings(ByVal stmtHandle As Long) As Long
+Public Function SQLite3ClearBindings(ByVal StmtHandle As Long) As Long
 #End If
-    SQLite3ClearBindings = sqlite3_clear_bindings(stmtHandle)
+    SQLite3ClearBindings = sqlite3_clear_bindings(StmtHandle)
 End Function
 '=====================================================================================
 ' Backup

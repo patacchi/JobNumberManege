@@ -19,9 +19,15 @@ Private Sub UserForm_Initialize()
     Dim KishuInfo As typKishuInfo
     txtboxStartRireki.Text = "Test0015T00000000001"
     txtboxJobNumber.Text = "TT00121"
-    txtboxMaisuu.Text = 1000
+    txtboxMaisuu.Text = 10000
     txtBoxFieldList.Text = Job_Number & "," & Job_RirekiHeader & "," & Job_RirekiNumber & "," & Job_Rireki
     KishuInfo = getKishuInfoByRireki(txtboxStartRireki.Text)
+    If chkBoxInputNextRireki Then
+        '最新履歴入力にチェックが入ってた場合
+        '履歴とJob番号を自動入力する
+        txtboxStartRireki.Text = GetNextRireki(Table_JobDataPri & KishuInfo.KishuName)
+        txtboxJobNumber.Text = GetNextJobNumber_ForBulk(Table_JobDataPri & KishuInfo.KishuName)
+    End If
     txtboxTableName.Text = Table_JobDataPri & KishuInfo.KishuName
 End Sub
 Private Sub btnGoInsert_Click()
@@ -39,7 +45,7 @@ Private Sub btnGoInsert_Click()
     '拾ってきた機種情報を元にいろいろごにょごにょ
     txtboxTableName.Text = Table_JobDataPri & KishuInfo.KishuName
     With sqlbBulkSQL
-        .StartRireki = txtboxStartRireki.Text
+        .startRireki = txtboxStartRireki.Text
         .JobNumber = txtboxJobNumber.Text
         .Maisu = CLng(txtboxMaisuu.Text)
         .TableName = txtboxTableName.Text
@@ -54,6 +60,7 @@ Private Sub btnGoInsert_Click()
         MsgBox "バルクインサートテスト最後に何かあったっぽい？"
         GoTo ErrorCatch
     End If
+    UserForm_Initialize
     Exit Sub
 ErrorCatch:
     Debug.Print "btnGOInsert_Click code: " & Err.Number & "Description: " & Err.Description

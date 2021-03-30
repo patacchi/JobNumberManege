@@ -90,7 +90,7 @@ Public Sub SheetToDB()
         longSQLStartRireki = longCurrentRow - longcurrentMaisuu
         With sqlbSheetToDB
 '            .BulkCount = 800
-            .StartRireki = CStr(varRirekiNumber(longSQLStartRireki, 1))
+            .startRireki = CStr(varRirekiNumber(longSQLStartRireki, 1))
             .FieldArray = arrFieldList_JobData
             .JobNumber = CStr(varJobNumber(longSQLStartRireki, 1))
             .Maisu = longcurrentMaisuu
@@ -98,13 +98,13 @@ Public Sub SheetToDB()
             .TableName = Table_JobDataPri & KishuInfo.KishuName
         End With
         '重複データのチェック
-        longStartRirekiNumber = CLng(Right(sqlbSheetToDB.StartRireki, KishuInfo.RenbanKetasuu))
+        longStartRirekiNumber = CLng(Right(sqlbSheetToDB.startRireki, KishuInfo.RenbanKetasuu))
         longEndRirekiNumber = longStartRirekiNumber + sqlbSheetToDB.Maisu - 1
         longDuplicateRirekiNumber = GetRecordCountSimple(sqlbSheetToDB.TableName, Job_RirekiNumber, _
                                     "BETWEEN " & longStartRirekiNumber & " AND " & longEndRirekiNumber & ";")
         If longDuplicateRirekiNumber >= 1 Then
             '重複ありなので、シートからの登録は無視する、最初の履歴位は表示してやろうか
-            MsgBox sqlbSheetToDB.StartRireki & " から始まる履歴で、 " & longDuplicateRirekiNumber & " 件の重複があったようです。今回の履歴は処理をスキップします。"
+            MsgBox sqlbSheetToDB.startRireki & " から始まる履歴で、 " & longDuplicateRirekiNumber & " 件の重複があったようです。今回の履歴は処理をスキップします。"
         Else
             Call sqlbSheetToDB.CreateInsertSQL
         End If

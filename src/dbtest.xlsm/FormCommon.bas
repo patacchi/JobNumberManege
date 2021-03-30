@@ -86,4 +86,7 @@ Public Sub BarcodeSizeSet()
     Application.ScreenUpdating = False
     Application.ScreenUpdating = True
     Application.Calculate
-End Sub
+End Sub
+Public Function CreateKanban(ByRef argKanbanInput As typKanbanInput) As Boolean
+    'ä≈î¬çÏê¨Ç∑ÇÈÇÃ
+End Function

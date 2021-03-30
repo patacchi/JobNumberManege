@@ -10,5 +10,6 @@ Sqlite3Demo.bas
 sqlite_master_all_result.csv
 #/bin/dbtest.xlsm
 ~$*
+TempDB/
 #/x64/
 /bin/Database_sqlite3/JobNumber*

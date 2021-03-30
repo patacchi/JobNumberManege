@@ -62,7 +62,7 @@ Private Sub btnInputRirekiNumber_Click()
     With sqlbJobInput
         .JobNumber = CStr(txtboxJobNumber.Text)
         .FieldArray = arrFieldList_JobData
-        .StartRireki = CStr(txtboxStartRireki.Text)
+        .startRireki = CStr(txtboxStartRireki.Text)
         .Maisu = CLng(txtboxMaisuu.Text)
         .RenbanKeta = KishuInfoInfrmJobInput.RenbanKetasuu
         .TableName = Table_JobDataPri & KishuInfoInfrmJobInput.KishuName
@@ -75,7 +75,7 @@ Private Sub btnInputRirekiNumber_Click()
                 GoTo CloseAndExit
     End If
     'スタート履歴（の連番）とエンド履歴を算出し、重複がないかチェック
-    longStartRirekiNumber = CLng(Right(sqlbJobInput.StartRireki, KishuInfoInfrmJobInput.RenbanKetasuu))
+    longStartRirekiNumber = CLng(Right(sqlbJobInput.startRireki, KishuInfoInfrmJobInput.RenbanKetasuu))
     longEndRirekiNumber = longStartRirekiNumber + sqlbJobInput.Maisu - 1
     longDuplicateNumber = GetRecordCountSimple(sqlbJobInput.TableName, Job_RirekiNumber, _
                             "BETWEEN " & longStartRirekiNumber & " AND " & longEndRirekiNumber & ";")

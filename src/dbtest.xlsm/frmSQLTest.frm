@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmSQLTest 
    Caption         =   "SQLテスト"
-   ClientHeight    =   8625.001
+   ClientHeight    =   10365
    ClientLeft      =   45
    ClientTop       =   390
    ClientWidth     =   13785
@@ -35,9 +35,21 @@ End Sub
 Private Sub btnFieldAndTableAdd_Click()
     CheckNewField
 End Sub
+Private Sub btnRenumberLast_KishuTable_Click()
+    Call RenumberKishuTableLastNumber
+End Sub
 Private Sub UserForm_Activate()
     'リサイズ機能追加
     Call FormResize
+End Sub
+Private Sub UserForm_Initialize()
+    'バインドパラメータのデータタイプを設定してやる
+    Dim strarrTypeName() As String
+    ReDim strarrTypeName(4)
+    strarrTypeName = Split("Int32" & "," & "Dbl" & "," & "Text" & "," & "Blob" & "," & "Nul" & "," & "Value", ",")
+    cmbBoxParmType1.List = strarrTypeName
+    cmbBoxParmType2.List = strarrTypeName
+    cmbBoxParmType3.List = strarrTypeName
 End Sub
 Private Sub UserForm_Resize()
     'フォームリサイズ時に、中のリストボックスもサイズ変更してやる
@@ -69,6 +81,7 @@ Private Sub btnSQLGo_Click()
     Dim isCollect As Boolean
     Dim strWidths As String
     Dim isDBFile As Boolean
+    Dim longDataType As Long
     Set dbSQLite3 = New clsSQLiteHandle
     isDBFile = IsDBFileExist
     If Not isDBFile Then
@@ -76,7 +89,34 @@ Private Sub btnSQLGo_Click()
         Debug.Print "DBファイル作成・確認時に何かあった"
         Exit Sub
     End If
-    isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
+    If chkBoxLocalDB Then
+        'ローカルDB希望の場合
+        dbSQLite3.LocalMode = True
+    Else
+        '通常はこっち（リモート）
+        dbSQLite3.LocalMode = False
+    End If
+    If chkBoxUseNamedParm Then
+        'NamedParmを使いたい場合
+        'SQL設定
+        dbSQLite3.SQL = txtboxSQLText.Text
+        'バインドパラメータのプロパティをセットしてやる
+        If Not txtBoxParName1 = "" Then
+            longDataType = GetDataTypeNumber(cmbBoxParmType1.Text)
+            Set dbSQLite3.NamedParm = dbSQLite3.GetNamedList(txtBoxParName1.Text, longDataType, txtBoxParmData1.Text)
+        End If
+        If Not txtBoxParName2 = "" Then
+            longDataType = GetDataTypeNumber(cmbBoxParmType2.Text)
+            Set dbSQLite3.NamedParm = dbSQLite3.GetNamedList(txtBoxParName2.Text, longDataType, txtBoxParmData2.Text)
+        End If
+        If Not txtBoxParName3 = "" Then
+            longDataType = GetDataTypeNumber(cmbBoxParmType3.Text)
+            Set dbSQLite3.NamedParm = dbSQLite3.GetNamedList(txtBoxParName3.Text, longDataType, txtBoxParmData3.Text)
+        End If
+        isCollect = dbSQLite3.Do_SQL_Use_NamedParm_NO_Transaction
+    Else
+        isCollect = dbSQLite3.DoSQL_No_Transaction(txtboxSQLText.Text)
+    End If
     If isCollect Then
         If chkboxNoTitle.Value = True Then
             'タイトルなしを希望の場合はこちら
@@ -100,6 +140,7 @@ Private Sub btnSQLGo_Click()
             strWidths = GetColumnWidthString(varRetValue, 1)
         End If
     End If
+    Set dbSQLite3 = Nothing
     If VarType(varRetValue) = vbEmpty Then
         listBoxSQLResult.Clear
         listBoxSQLResult.AddItem "データなし"
@@ -118,6 +159,31 @@ Private Sub btnSQLGo_Click()
         '.AddItem (varRetValue(1)(1))
     End With
 End Sub
+Private Function GetDataTypeNumber(ByVal strargDataType As String) As Long
+    '指定された文字列よりBindDataの定数を拾う
+    Select Case strargDataType
+    Case "Int32"
+        GetDataTypeNumber = BindType.Int32
+        Exit Function
+    Case "Dbl"
+        GetDataTypeNumber = BindType.Dbl
+        Exit Function
+    Case "Text"
+        GetDataTypeNumber = BindType.Text
+        Exit Function
+    Case "Blob"
+        GetDataTypeNumber = BindType.Blob
+        Exit Function
+    Case "Nul"
+        GetDataTypeNumber = BindType.Nul
+        Exit Function
+    Case "Value"
+        GetDataTypeNumber = BindType.Value
+        Exit Function
+    Case Else
+        MsgBox "指定形式以外が選択されました"
+    End Select
+End Function
 Private Sub listBoxSQLResult_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     'リストダブルクリックしたらクリップボードにコピーしてみおよう
     Dim objDataObj As DataObject

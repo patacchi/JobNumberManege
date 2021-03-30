@@ -6,22 +6,6 @@ Option Explicit
 'Microsoft ADO Ext. 6.0 for DDL and Security    %ProgramFiles(x86)%\Common Files\System\msadox.dll
 'Microsoft Scripting Runtime                    %SystemRoot%\SysWOW64\scrrun.dll
 'Microsoft DAO 3.6 Object Library               %ProgramFiles(x86)%\Common Files\Microfost Shared\DAO\dao360.dll
-'UNC対応のため、Win32API使用
-Public Declare PtrSafe Function SetCurrentDirectoryW Lib "kernel32" (ByVal lpPathName As LongPtr) As LongPtr
-'日付をミリ秒単位で取得するのにWin32APIを使用
-'SYSTEMTIME構造体定義
-Type SYSTEMTIME
-        wYear As Integer
-        wMonth As Integer
-        wDayOfWeek As Integer
-        wDay As Integer
-        wHour As Integer
-        wMinute As Integer
-        wSecond As Integer
-        wMilliseconds As Integer
-End Type
-'関数定義
-Public Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
 Public Function isUnicodePath(ByVal strCurrentPath As String) As Boolean
     'パス名にUnicodeが含まれていればTrueを返し、イベント無効にする（マクロ実行しずらいよね）
     Dim strSJIS As String           'パス名を一旦SJISに変換したもの
@@ -409,8 +393,9 @@ Public Sub CheckNewField()
     Dim arrStr_Index_AppendField() As String
     On Error GoTo ErrorCatch
     '追加フィールド定義
-    arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number & "," & Kishu_Sheet_Per_Rack, ",")
-    arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
+    arrStr_Kishu_AppendField = Split(Kishu_Mai_Per_Sheet & "," & Kishu_Barcord_Read_Number & "," & Kishu_Sheet_Per_Rack & "," _
+                                    & Kishu_Jobnumber_Lastnumber & "," & Kishu_Kanbanchr_Lastnumber, ",")
+    arrStr_Kishu_Type = Split("NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
     arrStr_Job_AppendField = Split(Job_KanbanChr & "," & Job_ProductDate & "," & Field_LocalInput & "," & Field_RemoteInput & "," & Job_KanbanNumber, ",")
     arrStr_Job_Type = Split("TEXT" & "," & "TEXT" & "," & "NUMERIC" & "," & "NUMERIC" & "," & "NUMERIC", ",")
     arrStr_BarCorde_AppendField = Split(Field_LocalInput & "," & Field_RemoteInput, ",")
@@ -793,13 +778,14 @@ CloseAndExit:
     Set dicFieldType = Nothing
     Exit Function
 End Function
- Public Function IsTableExist(ByVal strargTableName As String) As Boolean
+Public Function IsTableExist(ByVal strargTableName As String, Optional ByVal strargDBPath As String) As Boolean
     Dim dbExist As clsSQLiteHandle
     Set dbExist = New clsSQLiteHandle
     Dim isCollect As Boolean
     Dim strSQLlocal As String
-    strSQLlocal = "SELECT tbl_name FROM sqlite_master WHERE type=""table"" AND name=""" & strargTableName & """"
-    isCollect = dbExist.DoSQL_No_Transaction(strSQLlocal)
+'    strSQLlocal = "SELECT tbl_name FROM sqlite_master WHERE type=""table"" AND name=""" & strargTableName & """"
+    strSQLlocal = "SELECT tbl_name FROM sqlite_master WHERE name=""" & strargTableName & """"
+    isCollect = dbExist.DoSQL_No_Transaction(strSQLlocal, strargDBPath)
     If dbExist.RecordCount = 0 Then
         '検索結果にないので存在しない
         IsTableExist = False
@@ -1008,6 +994,37 @@ Public Function GetNextRireki(ByVal strargTableName As String) As String
     GetNextRireki = strNewRireki
     Exit Function
 End Function
+Public Function GetNextJobNumber_ForBulk(ByVal strargTableName As String) As String
+    'バルクインサート用にJob番号をインクリメントした結果を返してやる
+    Dim strNextJobNumber As String
+    Dim strOldJobNumber As String
+    Dim longJobNumber As Long
+    Dim sqlbC As clsSQLStringBuilder
+    Dim dbNextJobNumber As clsSQLiteHandle
+    Dim varArrJobNumber As Variant
+    On Error GoTo ErrorCatch
+    Set sqlbC = New clsSQLStringBuilder
+    Set dbNextJobNumber = New clsSQLiteHandle
+    dbNextJobNumber.SQL = "SELECT " & sqlbC.addQuote(Job_Number) & " FROM " & sqlbC.addQuote(strargTableName)
+    dbNextJobNumber.SQL = dbNextJobNumber.SQL & " WHERE " & sqlbC.addQuote(Job_RirekiNumber) & " = "
+    dbNextJobNumber.SQL = dbNextJobNumber.SQL & "( SELECT MAX(" & sqlbC.addQuote(Job_RirekiNumber) & ") FROM " & sqlbC.addQuote(strargTableName) & " );"
+    dbNextJobNumber.DoSQL_No_Transaction
+    varArrJobNumber = dbNextJobNumber.RS_Array
+    Set dbNextJobNumber = Nothing
+    Set sqlbC = Nothing
+    strOldJobNumber = varArrJobNumber(0, 0)
+    longJobNumber = CLng(Right(strOldJobNumber, 5))
+    longJobNumber = longJobNumber + 1
+    strNextJobNumber = Mid(strOldJobNumber, 1, Len(strOldJobNumber) - 5) & Right(String(5, "0") & CStr(longJobNumber), 5)
+    GetNextJobNumber_ForBulk = strNextJobNumber
+    Exit Function
+ErrorCatch:
+    Debug.Print "GetNextJobNumber code: " & Err.Number & " Description: " & Err.Description
+    GetNextJobNumber_ForBulk = ""
+    Set sqlbC = Nothing
+    Set dbNextJobNumber = Nothing
+    Exit Function
+End Function
 Public Sub OutputArrayToCSV(ByRef vararg2DimentionsDataArray As Variant, ByVal strargFilePath As String, Optional ByVal strargFileEncoding As String = "UTF-8")
     '二次元配列をCSVに吐き出す
     Dim byteDimentions As Byte
@@ -1057,6 +1074,77 @@ ErrorCatch:
     Debug.Print "OutputArrayToCSV code: " & Err.Number & " Description: " & Err.Description
     Exit Sub
 End Sub
+Public Function RenumberKishuTableLastNumber() As Boolean
+    '全機種の機種テーブルのLastNumber（Max）を全数検索した上で更新する
+    'ぐろばんるのが初期化されているかチェック
+    Dim longKishuCount As Long
+    Dim longJobLastNumber As Long
+    Dim longKanbanLastNumber As Long
+    Dim strTableName As String
+    Dim sqlbC As clsSQLStringBuilder
+    If (Not arrKishuInfoGlobal) = -1 Then
+        'ここに来ると未初期化らしい・・・
+        Call GetAllKishuInfo_Array
+    End If
+    If boolNoTableKishuRecord = True Then
+        '機種テーブルが空の場合は終了する
+        Exit Function
+    End If
+    Set sqlbC = New clsSQLStringBuilder
+    '機種数分ループ
+    For longKishuCount = LBound(arrKishuInfoGlobal) To UBound(arrKishuInfoGlobal)
+        'テーブル名等決定
+        strTableName = sqlbC.addQuote(Table_JobDataPri & arrKishuInfoGlobal(longKishuCount).KishuName)
+        '看板のラスト取得・設定
+        longKanbanLastNumber = GetLastRirekiNumber_for_KishuTable_From_OriginDB(strTableName, KanbanChrField)
+        Call UpdateLastRirekNumber_atKishuTable(arrKishuInfoGlobal(longKishuCount).KishuName, longKanbanLastNumber, KanbanChrField, boolUseNewNumberOnly:=True)
+        'Job番号のラスト取得・設定
+        longJobLastNumber = GetLastRirekiNumber_for_KishuTable_From_OriginDB(strTableName, JobNumberField)
+        Call UpdateLastRirekNumber_atKishuTable(arrKishuInfoGlobal(longKishuCount).KishuName, longJobLastNumber, JobNumberField, boolUseNewNumberOnly:=True)
+    Next longKishuCount
+    Set sqlbC = Nothing
+    Debug.Print "機種テーブル最新履歴更新完了" & GetLocalTimeWithMilliSec
+End Function
+Private Function GetLastRirekiNumber_for_KishuTable_From_OriginDB(ByVal strargTableName, ByVal longargFieldType As LastRirekiNumber) As Long
+    '主にメンテナンス用、オリジナルのDBから看板、Job番号の最後の履歴連番を取得する
+    Dim strRirekiNumber As String
+    Dim strWhereField As String
+    Dim varReturn As Variant
+    Dim sqlbC As clsSQLStringBuilder
+    Dim dbLastOriginDB As clsSQLiteHandle
+    Set sqlbC = New clsSQLStringBuilder
+    Set dbLastOriginDB = New clsSQLiteHandle
+    strRirekiNumber = sqlbC.addQuote(Job_RirekiNumber)
+    Select Case longargFieldType
+    Case LastRirekiNumber.JobNumberField
+        'Job番号の時
+        strWhereField = sqlbC.addQuote(Job_Number)
+    Case LastRirekiNumber.KanbanChrField
+        '看板の時
+        strWhereField = sqlbC.addQuote(Job_KanbanChr)
+    Case Else
+        MsgBox "規定外のタイプだよ"
+        GetLastRirekiNumber_for_KishuTable_From_OriginDB = 0
+        Set dbLastOriginDB = Nothing
+        Set sqlbC = Nothing
+        Exit Function
+    End Select
+    'SQL実行、パラメータ無しかな
+    dbLastOriginDB.SQL = "SELECT MAX(" & strRirekiNumber & ") FROM " & strargTableName & " WHERE " & strWhereField & " IS NOT NULL;"
+    dbLastOriginDB.DoSQL_No_Transaction
+    varReturn = dbLastOriginDB.RS_Array
+    Set dbLastOriginDB = Nothing
+    Set sqlbC = Nothing
+    If IsNull(varReturn(0, 0)) Then
+        'Nullだった
+        Debug.Print "GetLastRireki_OriginDB 結果がNullだったよ"
+        GetLastRirekiNumber_for_KishuTable_From_OriginDB = 0
+        Exit Function
+    Else
+        GetLastRirekiNumber_for_KishuTable_From_OriginDB = CLng(varReturn(0, 0))
+        Exit Function
+    End If
+End Function
 Public Sub CheckKishuTable_Field()
     '設定項目が増えたので（しかもNotNullっぽい）、未入力箇所をチェックするめそどー
 '    Dim dbCheckKishuTable As clsSQLiteHandle

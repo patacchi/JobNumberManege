@@ -14,6 +14,13 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
+'#const ReadLocal =1 とすると、機種名特定できた時点でローカルに一時テーブルを作成し、そこから検索するようにする
+'他でも参照するっぽいので、Vbaprojectのプロパティでグローバル変数として定義
+#If READLOCAL = 1 Then
+    Private dbLocal As clsSQLiteHandle
+    Private strLocalPath
+    Private strLocalDBFilePath
+#End If
 Private Sub btnDeleteLastKanban_Click()
     If listBoxExistingChr.ColumnCount <= 1 Then
         MsgBox "JOB分割履歴が存在しないようなので、削除処理を中止します"
@@ -23,7 +30,8 @@ End Sub
 Private Sub btnDoDivide_Click()
     Dim KishuLocal As typKishuInfo
     Dim isCollect As Boolean
-    Dim strOldJobNumber As String
+    Dim longOldJobNumberIndex As Long
+    Dim longOldNicknameIndex As Long
     On Error GoTo ErrorCatch
     KishuLocal = GetKishuinfoByNickName(lblNowKishuNickName.Caption)
     If txtBoxNewMaisuu.Text = "" Or txtboxNewSheetQty.Text = "" Or cmbBoxKanbanChr.Text = "" Then
@@ -44,9 +52,24 @@ Private Sub btnDoDivide_Click()
         Exit Sub
     End If
     '終了したのでお掃除
-    strOldJobNumber = cmbBoxJobNumber.List(cmbBoxJobNumber.ListIndex, 0)
-    Call Clear_Exclude_KishuNickName
+'    strOldJobNumber = cmbBoxJobNumber.List(cmbBoxJobNumber.ListIndex, 0)
+    longOldJobNumberIndex = cmbBoxJobNumber.ListIndex
+    longOldNicknameIndex = cmbBoxKishuNickName.ListIndex
+    Call Clear_Exclude_KishuNickName(boolExcludeJobNumber:=True)
     'リスト再表示
+    cmbBoxKishuNickName.ListIndex = -1
+    Sleep 20
+    cmbBoxJobNumber.ListIndex = -1
+    Sleep 20
+    cmbBoxKishuNickName.ListIndex = longOldNicknameIndex
+    Sleep 20
+    cmbBoxJobNumber.ListIndex = longOldJobNumberIndex
+    Sleep 100
+    listBoxExistingChr.Width = 520
+    Sleep 50
+    listBoxExistingChr.Width = 525.5
+    Sleep 30
+    MsgBox "Job分割完了"
     Exit Sub
 ErrorCatch:
     Debug.Print "btnDoDivide code: " & Err.Number & " Descriptoin: " & Err.Description
@@ -57,6 +80,7 @@ Private Sub btnPrintKanban_Click()
         MsgBox "看板を作成したい分割番号を選んでからクリックして下さい。"
         Exit Sub
     End If
+    '看板作成開始
 End Sub
 Private Sub btnQRRead_Click()
     Dim KishuLocal As typKishuInfo
@@ -86,7 +110,32 @@ Private Sub cmbBoxKishuNickName_Change()
     Call Clear_Exclude_KishuNickName
     '機種通称名からKishuInfoを引っ張ってくる
     KishuNickName = GetKishuinfoByNickName(cmbBoxKishuNickName.Text)
-    vararrJobData = ReturnJobNumber_For_KanbanDivide(Table_JobDataPri & KishuNickName.KishuName)
+    '看板一覧表取得SQL大幅改善につき、ローカルコピーは不要になりました
+    #If READLOCAL = 1 Then
+        'ローカルコピー時は、ここで機種関連テーブルをローカルに取り込む
+        Dim dicOriginTableSchema As Dictionary
+        Dim varKeyLocal As Variant
+        Dim isCollect As Boolean
+        Set dbLocal = New clsSQLiteHandle
+        Set dicOriginTableSchema = GetOriginalDBSchemaByKishuName(KishuNickName.KishuName)
+        'まずはテーブル定義のみを済ませる
+        For Each varKeyLocal In dicOriginTableSchema
+            'テーブルが存在しない場合のみ作成
+            If Not IsTableExist(dicOriginTableSchema(varKeyLocal)("name"), strLocalDBFilePath) Then
+                dbLocal.SQL = dicOriginTableSchema(varKeyLocal)("sql")
+                dbLocal.DBPath = strLocalDBFilePath
+                dbLocal.DoSQL_No_Transaction
+            End If
+        Next
+        '次に、中身のコピーに進む（ここは重いはず）
+        If chkBoxLastArea.Value Then
+            '取得行数指定がある場合（こっちがデフォルト動作にしたい）
+            isCollect = CopyDBTableRemote_To_Local(Table_JobDataPri & KishuNickName.KishuName, strLocalDBFilePath, longargLastNumberArea:=CLng(txtBoxAfterArea.Text))
+        Else
+            isCollect = CopyDBTableRemote_To_Local(Table_JobDataPri & KishuNickName.KishuName, strLocalDBFilePath)
+        End If
+    #End If
+    vararrJobData = ReturnJobNumber_For_KanbanDivide(Table_JobDataPri & KishuNickName.KishuName, KishuNickName)
     cmbBoxJobNumber.ColumnCount = UBound(vararrJobData, 2) - LBound(vararrJobData, 2) + 1
     strListColumnWidth = GetColumnWidthString(vararrJobData, boolMaxLengthFind:=True)
     cmbBoxJobNumber.List = vararrJobData
@@ -131,9 +180,14 @@ Private Sub cmbBoxJobNumber_Change()
     'フォーカス移動
     txtboxNewSheetQty.SetFocus
     vararrDivideChr = ReturnDivideChrByJobNumber(strTableName, strJobNumber, strInputDate)
+    'なぜか幅が変わるので、手動設定
+    listBoxExistingChr.Width = 524.24
+    Sleep 2
+    listBoxExistingChr.Width = 524.25
     'ここで過去の履歴なしの場合は、以後の処理を中止して過去結果リストボックスにそう表示してやる
     'データなしの場合は、新品のJobの可能性もあるので注意
-    If vararrDivideChr(0, 0) = "No Title" Then
+'    If vararrDivideChr(0, 0) = "No Title" Then
+    If UBound(vararrDivideChr, 2) < 2 Then
         '現時点でデータなし
         listBoxExistingChr.ColumnWidths = ""
         listBoxExistingChr.ColumnCount = 1
@@ -166,6 +220,7 @@ Private Sub Clear_Exclude_KishuNickName(Optional ByVal boolExcludeJobNumber As B
     lblRemainSheetQty.Caption = ""
     txtBoxNewMaisuu.Text = ""
     txtboxNewSheetQty.Text = ""
+    listBoxExistingChr.Width = 524.5
 End Sub
 Private Sub txtBoxNewMaisuu_Change()
     Dim KishuLocal As typKishuInfo
@@ -244,6 +299,18 @@ ErrorCatch:
     Exit Sub
 End Sub
 Private Sub UserForm_Initialize()
+    'ローカルコピーモードの時は、テンポラリディレクトリを作成する
+    #If READLOCAL = 1 Then
+        Dim fsoLocal As FileSystemObject
+        Set fsoLocal = New FileSystemObject
+        strLocalPath = ThisWorkbook.Path & "\" & LocalTempDBDir
+        strLocalDBFilePath = strLocalPath & "\" & LocalDBName
+        If Not fsoLocal.FolderExists(strLocalPath) Then
+            'ディレクトリ無ければ作成する
+            MkDir strLocalPath
+        End If
+        Set fsoLocal = Nothing
+    #End If
     '看板分割フォーム初期化
     Dim dbKanban As clsSQLiteHandle
     Dim varArrKishuNickName As Variant
@@ -258,8 +325,16 @@ Private Sub UserForm_Initialize()
     '機種名コンボボックスに追加してやる
     cmbBoxKishuNickName.List = varArrKishuNickName
     '看板分割文字列ボックスにA-Zを追加
-    For byteChrCodeCounter = 65 To 90
+    For byteChrCodeCounter = MIN_Kanban_ChrCode To MAX_Kanban_ChrCode
         cmbBoxKanbanChr.AddItem Chr(byteChrCodeCounter)
     Next byteChrCodeCounter
     btnQRRead.SetFocus
+End Sub
+Private Sub UserForm_Terminate()
+    #If READLOCAL = 1 Then
+        'todo
+        'ローカルコピー使用時は一時ファイルを・・・削除する？しない？
+        '接続しっぱなしになってるLocalDBをクローズ
+        Set dbLocal = Nothing
+    #End If
 End Sub

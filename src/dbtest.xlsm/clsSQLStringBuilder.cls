@@ -65,13 +65,13 @@ Property Get BulkCount() As Long
     'バルク数取得
     BulkCount = longBulkCount
 End Property
-Property Let StartRireki(strargStartRireki As String)
+Property Let startRireki(strargStartRireki As String)
     'スタート履歴設定
     strStartRireki = strargStartRireki
 End Property
-Property Get StartRireki() As String
+Property Get startRireki() As String
     'スタート履歴取得
-    StartRireki = strStartRireki
+    startRireki = strStartRireki
 End Property
 Property Let EndRireki(strargEndRireki As String)
     'エンド履歴設定
@@ -154,7 +154,7 @@ Public Function CreateInsertSQL(Optional ByVal boolCheckLastRireki As Boolean, _
     On Error GoTo ErrorCatch
     'フィールド名は先にプロパティでセットしてほしいの・・・
     If Not strargStartRireki = "" Then
-        Me.StartRireki = strargStartRireki
+        Me.startRireki = strargStartRireki
     End If
     If Not longargMaisuu = 0 Then
         Me.Maisu = longargMaisuu
@@ -165,7 +165,7 @@ Public Function CreateInsertSQL(Optional ByVal boolCheckLastRireki As Boolean, _
     If Not strargJobNumber = "" Then
         Me.JobNumber = strargJobNumber
     End If
-    If Me.StartRireki = "" Or _
+    If Me.startRireki = "" Or _
         Me.Maisu <= 0 Or _
         Me.TableName = "" Or _
         Me.JobNumber = "" Then
@@ -174,11 +174,11 @@ Public Function CreateInsertSQL(Optional ByVal boolCheckLastRireki As Boolean, _
         Exit Function
     End If
     'DBから履歴の桁数とか拾ってくる
-    KishuInfo = getKishuInfoByRireki(Me.StartRireki)
+    KishuInfo = getKishuInfoByRireki(Me.startRireki)
     If Me.RenbanKeta = 0 Then
         Me.RenbanKeta = KishuInfo.RenbanKetasuu
     End If
-    Me.RirekiHeader = Left(Me.StartRireki, KishuInfo.TotalRirekiketa - KishuInfo.RenbanKetasuu)
+    Me.RirekiHeader = Left(Me.startRireki, KishuInfo.TotalRirekiketa - KishuInfo.RenbanKetasuu)
     'FieldType定義がなされているかチェック
     If dicFieldType Is Nothing Then
         Set dicFieldType = GetFieldTypeNameByTableName(Me.TableName)
@@ -186,7 +186,7 @@ Public Function CreateInsertSQL(Optional ByVal boolCheckLastRireki As Boolean, _
     'ラスト履歴チェックの有無により処理分岐
     If boolCheckLastRireki Then
         Me.EndRireki = Me.RirekiHeader & Right(String$(Me.RenbanKeta, "0") & _
-                        CLng(Right(Me.StartRireki, KishuInfo.RenbanKetasuu)) + Me.Maisu - 1, Me.RenbanKeta)
+                        CLng(Right(Me.startRireki, KishuInfo.RenbanKetasuu)) + Me.Maisu - 1, Me.RenbanKeta)
         intReturnCode = MsgBox(prompt:="最終履歴は " & Me.EndRireki & " で合っていますか？", Buttons:=vbYesNo)
         If intReturnCode = vbNo Then
             Debug.Print "Last Rireki Check Abort"
@@ -241,12 +241,14 @@ Private Function BuildJobDataValuesList() As Boolean
     Dim intFieldCounter As Integer
     Dim longMaisuuCounter As Long
     Dim longRirekiNumber As Long
+    Dim KishuLocal As typKishuInfo
     Dim strarrBuf() As String
     Dim strValues(0) As String
     Dim longCurrentElement As Long          'バッファの現在の（通算）要素数、フィールド×レコード数になるかも
     Dim isCollect As Boolean
     Dim dbJobData As clsSQLiteHandle
     Dim strLocalTimeWithMSec As String      'ミリ秒付きの現在日時
+    Dim longLastNumber As Long
     On Error GoTo ErrorCatch
 '    Set dbJobData = New clsSQLiteHandle
     longCurrentElement = 0
@@ -271,7 +273,7 @@ Private Function BuildJobDataValuesList() As Boolean
         'バルクカウントだけど、これもForはだめ、中で数が変わるので
         Do While longCounterBulk <= Me.BulkCount
             'ここで履歴の連番を導出する
-            Me.RirekiNumber = CLng(Right(Me.StartRireki, Me.RenbanKeta)) + longMaisuuCounter - 1
+            Me.RirekiNumber = CLng(Right(Me.startRireki, Me.RenbanKeta)) + longMaisuuCounter - 1
             '一番内側のループ。ここでフィールドの数分ループする（文法のひとまとまり）
             For intFieldCount = LBound(Me.FieldArray) To UBound(Me.FieldArray)
                 'それぞれフィールド名によって導出方法が異なる
@@ -334,12 +336,15 @@ Private Function BuildJobDataValuesList() As Boolean
         If Not isCollect Then
             Debug.Print "バルクインサート中に何かあったようですにょ"
         End If
+        '毎回接続を破棄してみる
+        Set dbJobData = Nothing
+        '機種テーブルのJobNumberLastNumberを更新する
+        KishuLocal = getKishuInfoByRireki(Me.Rireki)
+        isCollect = UpdateLastRirekNumber_atKishuTable(KishuLocal.KishuName, CLng(Right(Me.Rireki, KishuLocal.RenbanKetasuu)), JobNumberField)
         strSQLBuilder = ""
         strValues(0) = ""
         longCurrentElement = 0
         longCounterBulk = 1
-        '毎回接続を破棄してみる
-        Set dbJobData = Nothing
         If Me.Maisu <= longMaisuuCounter Then
             'もう必要枚数は終わってるので、処理を中断して抜ける
             BuildJobDataValuesList = True

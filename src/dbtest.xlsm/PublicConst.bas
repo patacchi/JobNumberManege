@@ -1,10 +1,11 @@
 Attribute VB_Name = "PublicConst"
 Option Explicit
-'Option Base 1
 'office 2013導入により、mdbからaccdb形式に移行
 'DBをSQLite3に移行  2021_01_10 Pataccchi
-Public Const constDatabasePath              As String = "\\toshiba.local\adsf\tdms_js_js\（実装）SMTグループ\SMT計画#2\中量産(LINE4)\JobNumberManege\bin\Database_sqlite3"      'データベースディレクトリ
+Public Const constDatabasePath              As String = "\\toshiba.local\adsf\tdms_js_js\（実装）SMTグループ\SMT計画#2\中量産(LINE4)\JobNumberManege\Database"      'データベースディレクトリ
 Public Const constJobNumberDBname           As String = "JobNumberDB.sqlite3"   'ジョブ番号情報DBのファイル名
+Public Const LocalTempDBDir                 As String = "TempDB"                'ローカルコピー機能使用時のTempDBの置き場所
+Public Const LocalDBName                    As String = "LocalDB.sqlite3"       'ローカル時のDBファイル名
 Public Const Field_Initialdate              As String = "InitialInputDate"      '各テーブル共通、初回入力時刻
 Public Const Field_Update                   As String = "UpdateDate"            '各テーブル共通、最終更新時刻
 Public Const Field_BarcordeNumber           As String = "BarcodeNumber"         'テーブル共通、トレサIDバーコードデータ
@@ -25,6 +26,8 @@ Public Const Kishu_RenbanKetasuu            As String = "RenbanKetasuu"         
 Public Const Kishu_Mai_Per_Sheet            As String = "Mai_Per_Sheet"         '1シートあたりの枚数
 Public Const Kishu_Sheet_Per_Rack           As String = "Sheet_Per_Rack"        '1ラックあたりのシート数
 Public Const Kishu_Barcord_Read_Number      As String = "Barcord_Read_Number"   'バーコード読み取り数
+Public Const Kishu_Jobnumber_Lastnumber     As String = "JobNumber_LastNumber"  'Job登録した際の履歴連番の最大値
+Public Const Kishu_Kanbanchr_Lastnumber     As String = "KanbanChr_LastNumber"  '看板分割の履歴連番の最大値
 'ログ情報格納テーブル定義
 'ログは基本的にトリガーで入力する
 Public Const Table_Log                      As String = "T_Log"                 'ログ情報テーブル名
@@ -91,6 +94,13 @@ Public Const constRirekiToLabel                 As String = "Rireki_To"         
 Public Const constMaxRirekiKetasuu              As Byte = 20                        '履歴桁数のMax値
 Public Const constDefaultArraySize              As Long = 6000                      'DBからの結果セットの配列の初期上限
 Public Const constAddArraySize                  As Long = 2000                      '配列確保行数が足りなくなった場合の1回で増量する分
+'機種テーブル、最終履歴番号（連番）取得の種類設定（今のところ看板分割かJob番号かの選択）
+Public Const JOBNUMBER_LASTNUMBER         As Long = 0                         'Job番号の最終連番の場合
+Public Const KANBANCHR_LASTNUMBER         As Long = 1                         '看板分割の最終連番の場合
+Public Enum LastRirekiNumber
+    JobNumberField = JOBNUMBER_LASTNUMBER
+    KanbanChrField = KANBANCHR_LASTNUMBER
+End Enum
 'エラーコード定義（もう使わないかも・・・
 Public Const errcNone                       As Integer = 0                      '正常終了
 Public Const errcDBAlreadyExistValue        As Integer = -2                      '既に同じ値がDB上に有る場合
@@ -110,10 +120,33 @@ Public Type typKishuInfo
     SheetPerRack As Byte
     BarcordReadNumber As Byte
 End Type
+'Jobの情報を受け取る構造体を定義
+Public Type typJobInfo
+    StartNumber As Long
+    startRireki As String
+    EndNumber  As Long
+    EndRireki As String
+    JobNumber As String
+    InitialDate As String
+End Type
+'QRコード読み取り時の情報を格納する構造体
 Public Type typQRDataField
     JobNumber As String
     Zuban As String
     Maisuu As Integer
+End Type
+'看板作成に必要な情報をまとめた構造体
+Public Type typKanbanInput
+    Zuban As String                         '図番（機種ニックネーム）
+    Maisu_Current As Integer                '枚数（看板毎、最後の1枚以外はずっと変わらないはず）
+    JobNumber_with_KanbanChr As String      'Job番号+看板分割文字（ZT012345_sp3_0001(_sp3_AX)(KanbanChr)）
+    RackNumber_Now_and_Total As String      '3桁揃え（現在ラック）/3桁揃え（合計ラック） 先頭に空白3つを結合し、Rightで3
+    JobMaisuu As Long                       'Jobのトータル枚数
+    FromRireki As String                    'From履歴
+    ToRireki As String                      'To履歴
+    QRQty   As Long                         'QRコード完了数、Jobのスタートからの枚数になる
+    KouteiNo() As String                    '行程Noの1次元配列
+    KouteiMei() As String                   '行程名の1次元配列
 End Type
 Public arrKishuInfoGlobal() As typKishuInfo
 'QR読んだらぐろばんる変数で保持してるので、そこに入力してやる(フォーム間のデータ受け渡しになるため）
